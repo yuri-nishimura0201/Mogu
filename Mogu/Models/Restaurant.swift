@@ -18,6 +18,7 @@ struct Restaurant: Identifiable, Decodable {
     let photo: RestaurantPhoto
     let genre: RestaurantGenre
     let budget: RestaurantBudget
+    let urls: RestaurantURLs
 }
 
 struct RestaurantPhoto: Decodable {
@@ -35,7 +36,6 @@ struct RestaurantResponse: Decodable {
 
 struct RestaurantResults: Decodable {
     let shop: [Restaurant]
-    let results_available: Int
 }
 
 struct RestaurantGenre: Decodable {
@@ -44,4 +44,8 @@ struct RestaurantGenre: Decodable {
 
 struct RestaurantBudget: Decodable {
     let name: String
+}
+
+struct RestaurantURLs: Decodable {
+    let pc: String
 }

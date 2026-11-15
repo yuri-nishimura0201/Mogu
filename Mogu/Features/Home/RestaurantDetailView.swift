@@ -1,5 +1,5 @@
 //
-//  SwiftUIView.swift
+//  RestaurantDetailView.swift
 //  Mogu
 //
 //  Created by cmStudent on 2026/11/15.
@@ -12,11 +12,12 @@ struct RestaurantDetailView: View {
 
     let restaurant: Restaurant
 
+    @State private var showSafari = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
 
-                // 店舗写真
                 AsyncImage(
                     url: URL(string: restaurant.photo.mobile.l)
                 ) { image in
@@ -33,18 +34,15 @@ struct RestaurantDetailView: View {
 
                 VStack(alignment: .leading, spacing: 16) {
 
-                    // 店名
                     Text(restaurant.name)
                         .font(.title2)
                         .bold()
 
-                    // 料理ジャンル
                     Text(restaurant.genre.name)
                         .foregroundStyle(.secondary)
 
                     Divider()
 
-                    // 予算
                     VStack(alignment: .leading, spacing: 5) {
                         Label("予算目安", systemImage: "yensign.circle")
                             .font(.headline)
@@ -54,7 +52,6 @@ struct RestaurantDetailView: View {
 
                     Divider()
 
-                    // 営業時間
                     VStack(alignment: .leading, spacing: 5) {
                         Label("営業時間", systemImage: "clock")
                             .font(.headline)
@@ -64,7 +61,6 @@ struct RestaurantDetailView: View {
 
                     Divider()
 
-                    // 住所
                     VStack(alignment: .leading, spacing: 5) {
                         Label("住所", systemImage: "mappin.and.ellipse")
                             .font(.headline)
@@ -72,19 +68,43 @@ struct RestaurantDetailView: View {
                         Text(restaurant.address)
                     }
 
-                    // アクセス
                     VStack(alignment: .leading, spacing: 5) {
                         Label("アクセス", systemImage: "figure.walk")
                             .font(.headline)
 
                         Text(restaurant.access)
                     }
+
+                    Divider()
+
+                    if URL(string: restaurant.urls.pc) != nil {
+                        Button {
+                            showSafari = true
+                        } label: {
+                            Label(
+                                "メニュー・店舗情報・予約ページはこちら",
+                                systemImage: "book.pages"
+                            )
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(
+                                .brown,
+                                in: RoundedRectangle(cornerRadius: 12)
+                            )
+                        }
+                    }
                 }
                 .padding()
             }
         }
-        .navigationTitle("店舗詳細")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showSafari) {
+            if let url = URL(string: restaurant.urls.pc) {
+                SafariView(url: url)
+                    .ignoresSafeArea()
+            }
+        }
     }
 }
-

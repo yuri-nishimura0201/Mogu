@@ -14,9 +14,6 @@ class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
 
     func requestLocation() {
-        print("位置情報の取得を開始")
-        print("許可状態: \(locationManager.authorizationStatus.rawValue)")
-        
         switch locationManager.authorizationStatus {
         case .notDetermined:
             locationManager.requestWhenInUseAuthorization()

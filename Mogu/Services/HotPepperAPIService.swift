@@ -11,7 +11,8 @@ struct HotPepperAPIService {
     func fetchRestaurants(
         latitude: Double,
         longitude: Double,
-        apiKey: String
+        apiKey: String,
+        genre: String? = nil
     ) async throws -> [Restaurant] {
 
         var components = URLComponents(
@@ -26,6 +27,12 @@ struct HotPepperAPIService {
             URLQueryItem(name: "count", value: "40"),
             URLQueryItem(name: "format", value: "json")
         ]
+
+        if let genre = genre {
+            components.queryItems?.append(
+                URLQueryItem(name: "genre", value: genre)
+            )
+        }
 
         guard let url = components.url else {
             throw URLError(.badURL)

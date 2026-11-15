@@ -10,62 +10,42 @@ struct HomeMapView: View {
     @StateObject private var locationService = LocationService()
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var restaurants: [Restaurant] = []
-    @State private var showRestaurantList = true
     @State private var mapCenter: CLLocationCoordinate2D?
     @State private var showSearchButton = false
+    @State private var selectedRestaurant: Restaurant?
+    @State private var isListExpanded = false
+    @Binding var selectedGenre: String
+    @Binding var showSearchFilter: Bool
     
     var body: some View {
         ZStack(alignment: .top) {
+
             Map(position: $cameraPosition) {
                 ForEach(restaurants) { restaurant in
-                    //                Annotation(
-                    //                    restaurant.name,
-                    //                    coordinate: CLLocationCoordinate2D(
-                    //                        latitude: restaurant.lat,
-                    //                        longitude: restaurant.lng
-                    //                    )
-                    //                )
-                    //                {
-                    //                    VStack(spacing: 4) {
-                    //                        AsyncImage(
-                    //                            url: URL(string: restaurant.photo.mobile.s)
-                    //                        ) { image in
-                    //                            image
-                    //                                .resizable()
-                    //                                .scaledToFill()
-                    //                        } placeholder: {
-                    //                            Image(systemName: "fork.knife")
-                    //                                .foregroundStyle(.brown)
-                    //                        }
-                    //                        .frame(width: 60, height: 60)
-                    //                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                    //
-                    //                        Text(restaurant.genre.name)
-                    //                            .font(.caption2)
-                    //                            .foregroundStyle(.secondary)
-                    //                            .lineLimit(1)
-                    //
-                    //                        Text("営業時間を確認")
-                    //                            .font(.caption2)
-                    //                            .foregroundStyle(.secondary)
-                    //
-                    //                    }
-                    //                    .padding(6)
-                    //                    .frame(width: 130)
-                    //                    .background(.regularMaterial)
-                    //                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    //                    .shadow(radius: 3)
-                    //                }
-                    Marker(
+                    Annotation(
                         restaurant.name,
                         coordinate: CLLocationCoordinate2D(
                             latitude: restaurant.lat,
                             longitude: restaurant.lng
                         )
-                    )
-                    .tint(.brown)
+                    ) {
+                        Button {
+                            selectedRestaurant = restaurant
+                        } label: {
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.system(size: 34))
+                                .foregroundStyle(.brown)
+                                .background(
+                                    Circle()
+                                        .fill(.white)
+                                        .frame(width: 28, height: 28)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
+
             
             .onMapCameraChange(frequency: .onEnd) { context in
                 mapCenter = context.region.center
@@ -73,12 +53,10 @@ struct HomeMapView: View {
             }
             
             .onAppear {
-                print("① HomeMapViewが表示された！")
                 locationService.requestLocation()
             }
             .onReceive(locationService.$coordinate.compactMap { $0 }) {
                 coordinate in
-                print("② 現在地を取得した！")
                 cameraPosition = .region(
                     MKCoordinateRegion(
                         center: coordinate,
@@ -88,8 +66,6 @@ struct HomeMapView: View {
                         )
                     )
                 )
-                
-                print("③ API検索を開始する！")
                 
                 Task {
                     await loadRestaurants(
@@ -104,8 +80,6 @@ struct HomeMapView: View {
                     guard let center = mapCenter else { return }
                     
                     showSearchButton = false
-                    
-                    print("再検索地点：\(center.latitude), \(center.longitude)")
                     
                     Task {
                         await loadRestaurants(
@@ -123,15 +97,73 @@ struct HomeMapView: View {
                 }
                 .padding(.top, 16)
             }
-            
-        } //ZStack
+            VStack {
+                Spacer()
+
+                VStack(spacing: 0) {
+
+                    // ドラッグ用のつまみ
+                    Capsule()
+                        .fill(Color.gray.opacity(0.4))
+                        .frame(width: 40, height: 5)
+                        .padding(.top, 10)
+                        .padding(.bottom, 8)
+
+                    restaurantList
+                }
+                .frame(
+                    height: isListExpanded ? 450 : 180,
+                    alignment: .top
+                )
+                .frame(maxWidth: .infinity)
+                .background(
+                    Color(red: 1.0, green: 0.98, blue: 0.96),
+                    in: UnevenRoundedRectangle(
+                        topLeadingRadius: 22,
+                        topTrailingRadius: 22
+                    )
+                )
+                .shadow(color: .black.opacity(0.12), radius: 8, y: -3)
+                .gesture(
+                    DragGesture()
+                        .onEnded { value in
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                if value.translation.height < -50 {
+                                    isListExpanded = true
+                                } else if value.translation.height > 50 {
+                                    isListExpanded = false
+                                }
+                            }
+                        }
+                )
+            }
+
+        }
+
+        .navigationDestination(
+            isPresented: Binding(
+                get: { selectedRestaurant != nil },
+                set: { if !$0 { selectedRestaurant = nil } }
+            )
+        ) {
+            if let restaurant = selectedRestaurant {
+                RestaurantDetailView(restaurant: restaurant)
+            }
+        }
         
-        .sheet(isPresented: $showRestaurantList) {
-            restaurantList
-                .presentationDetents([.height(180), .medium, .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackgroundInteraction(.enabled)
-                .interactiveDismissDisabled()
+        .overlay(alignment: .topTrailing) {
+            Button {
+                showSearchFilter = true
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.title3)
+                    .foregroundStyle(.brown)
+                    .padding(12)
+                    .background(.regularMaterial, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 16)
+            .padding(.top, 12)
         }
     }
     
@@ -179,7 +211,7 @@ struct HomeMapView: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                     
-                                    Text("\(restaurant.open)")
+                                    Text(restaurant.open)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(2)
@@ -215,19 +247,13 @@ struct HomeMapView: View {
             let result = try await HotPepperAPIService().fetchRestaurants(
                 latitude: latitude,
                 longitude: longitude,
-                apiKey: apiKey
+                apiKey: apiKey,
+                genre: selectedGenre.isEmpty ? nil : selectedGenre
             )
             
             await MainActor.run {
                 restaurants = result
                 fitMapToRestaurants(result)
-            }
-            print("取得した店舗数: \(result.count)")
-            
-            for restaurant in result {
-                print("店舗名: \(restaurant.name)")
-                
-                print("営業時間: \(restaurant.open)")
             }
         } catch {
             print("API通信エラー: \(error)")
@@ -294,5 +320,8 @@ struct HomeMapView: View {
 }
 
 #Preview {
-    HomeMapView()
+    HomeMapView(
+        selectedGenre: .constant(""),
+        showSearchFilter: .constant(false)
+    )
 }

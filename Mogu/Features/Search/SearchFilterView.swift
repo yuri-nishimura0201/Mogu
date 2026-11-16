@@ -1,10 +1,9 @@
 
 import SwiftUI
 
-
 struct SearchFilterView: View {
 
-    @Binding var selectedGenre: String
+    @Binding var filters: SearchFilters
     @Binding var showSearchFilter: Bool
 
     var body: some View {
@@ -17,7 +16,7 @@ struct SearchFilterView: View {
                 Spacer()
 
                 Button("リセット") {
-                    selectedGenre = ""
+                    filters = SearchFilters()
                 }
                 .font(.caption)
                 .foregroundStyle(.brown)
@@ -27,16 +26,32 @@ struct SearchFilterView: View {
             Divider()
 
             VStack(spacing: 0) {
+                HStack(spacing: 14) {
+                    Image(systemName: "location")
+                        .foregroundStyle(.brown)
+                        .frame(width: 24)
 
-                filterRow(
-                    title: "エリア・現在地",
-                    value: "現在地から1km",
-                    icon: "location"
-                )
+                    Text("エリア・現在地")
+                        .font(.subheadline)
 
+                    Spacer()
+
+                    Picker("検索範囲", selection: $filters.range) {
+                        ForEach(searchRanges, id: \.value) { range in
+                            Text(range.name)
+                                .tag(range.value)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .tint(.brown)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 12)
+
+                Divider()
 
                 VStack(alignment: .leading, spacing: 12) {
-
                     Label("ジャンル", systemImage: "fork.knife")
                         .font(.subheadline)
                         .foregroundStyle(.brown)
@@ -46,23 +61,27 @@ struct SearchFilterView: View {
                         HStack(spacing: 10) {
                             ForEach(genres, id: \.code) { genre in
                                 Button {
-                                    selectedGenre = genre.code
+                                    if genre.code.isEmpty {
+                                        filters.selectedGenres.removeAll()
+                                    } else if filters.selectedGenres.contains(genre.code) {
+                                        filters.selectedGenres.remove(genre.code)
+                                    } else {
+                                        filters.selectedGenres.insert(genre.code)
+                                    }
                                 } label: {
+
                                     Text(genre.name)
                                         .font(.subheadline)
                                         .foregroundStyle(
-                                            selectedGenre == genre.code
-                                                ? .white
-                                                : .brown
+                                            isSelected(genre.code) ? Color.white : Color.brown
                                         )
                                         .padding(.horizontal, 16)
                                         .padding(.vertical, 10)
                                         .background(
-                                            selectedGenre == genre.code
-                                                ? Color.brown
-                                                : Color.white,
+                                            isSelected(genre.code) ? Color.brown : Color.white,
                                             in: Capsule()
                                         )
+
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -74,12 +93,36 @@ struct SearchFilterView: View {
                 }
                 .padding(.vertical, 14)
 
+                HStack(spacing: 14) {
+                    Image(systemName: "yensign.circle")
+                        .foregroundStyle(.brown)
+                        .frame(width: 24)
 
-                filterRow(
-                    title: "予算",
-                    value: "指定なし",
-                    icon: "yensign.circle"
-                )
+                    Text("予算")
+                        .font(.subheadline)
+
+                    Spacer()
+
+                    Picker(
+                        "予算",
+                        selection: Binding(
+                            get: { filters.budget ?? "" },
+                            set: { filters.budget = $0.isEmpty ? nil : $0 }
+                        )
+                    ) {
+                        ForEach(budgets, id: \.code) { budget in
+                            Text(budget.name)
+                                .tag(budget.code)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .tint(.brown)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 12)
+
+                Divider()
 
                 filterRow(
                     title: "営業時間",
@@ -126,6 +169,40 @@ struct SearchFilterView: View {
         .background(Color(red: 1.0, green: 0.98, blue: 0.96))
     }
 
+    private func isSelected(_ code: String) -> Bool {
+        if code.isEmpty {
+            return filters.selectedGenres.isEmpty
+        }
+
+        return filters.selectedGenres.contains(code)
+    }
+
+    private let searchRanges: [(name: String, value: Int)] = [
+        ("300m以内", 1),
+        ("500m以内", 2),
+        ("1km以内", 3),
+        ("2km以内", 4),
+        ("3km以内", 5)
+    ]
+
+    private let budgets: [(name: String, code: String)] = [
+        ("指定なし", ""),
+        ("～500円", "B009"),
+        ("501～1000円", "B010"),
+        ("1001～1500円", "B011"),
+        ("1501～2000円", "B001"),
+        ("2001～3000円", "B002"),
+        ("3001～4000円", "B003"),
+        ("4001～5000円", "B008"),
+        ("5001～7000円", "B004"),
+        ("7001～10000円", "B005"),
+        ("10001～15000円", "B006"),
+        ("15001～20000円", "B012"),
+        ("20001～30000円", "B013"),
+        ("30001円～", "B014")
+    ]
+
+
     private let genres: [(name: String, code: String)] = [
         ("すべて", ""),
         ("居酒屋", "G001"),
@@ -146,14 +223,13 @@ struct SearchFilterView: View {
         ("お好み焼き・もんじゃ", "G016"),
         ("韓国料理", "G017")
     ]
+
     private func filterRow(
         title: String,
         value: String,
         icon: String
     ) -> some View {
-
         HStack(spacing: 14) {
-
             Image(systemName: icon)
                 .foregroundStyle(.brown)
                 .frame(width: 24)
@@ -182,7 +258,7 @@ struct SearchFilterView: View {
 
 #Preview {
     SearchFilterView(
-        selectedGenre: .constant(""),
+        filters: .constant(SearchFilters()),
         showSearchFilter: .constant(true)
     )
 }

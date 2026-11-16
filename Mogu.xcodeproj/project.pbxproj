@@ -14,7 +14,9 @@
 		7F5D796A30A8703A001ED058 /* Exceptions for "Mogu" folder in "Mogu" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				.gitignore,
 				Info.plist,
+				Secrets.xcconfig,
 			);
 			target = 7F5D793930A8604B001ED058 /* Mogu */;
 		};

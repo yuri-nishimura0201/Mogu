@@ -14,7 +14,7 @@ struct HomeMapView: View {
     @State private var showSearchButton = false
     @State private var selectedRestaurant: Restaurant?
     @State private var isListExpanded = false
-    @Binding var selectedGenre: String
+    @Binding var filters: SearchFilters
     @Binding var showSearchFilter: Bool
     
     var body: some View {
@@ -55,6 +55,7 @@ struct HomeMapView: View {
             .onAppear {
                 locationService.requestLocation()
             }
+
             .onReceive(locationService.$coordinate.compactMap { $0 }) {
                 coordinate in
                 cameraPosition = .region(
@@ -248,12 +249,26 @@ struct HomeMapView: View {
                 latitude: latitude,
                 longitude: longitude,
                 apiKey: apiKey,
-                genre: selectedGenre.isEmpty ? nil : selectedGenre
+                range: filters.range,
+                genres: filters.selectedGenres,
+                budget: filters.budget
             )
-            
+
+            let searchLocation = CLLocation(
+                latitude: latitude,
+                longitude: longitude
+            )
+            let sortedRestaurants = result.sorted {
+                CLLocation(latitude: $0.lat, longitude: $0.lng)
+                    .distance(from: searchLocation)
+                <
+                CLLocation(latitude: $1.lat, longitude: $1.lng)
+                    .distance(from: searchLocation)
+            }
+
             await MainActor.run {
-                restaurants = result
-                fitMapToRestaurants(result)
+                restaurants = sortedRestaurants
+                fitMapToRestaurants(sortedRestaurants)
             }
         } catch {
             print("API通信エラー: \(error)")
@@ -269,7 +284,6 @@ struct HomeMapView: View {
             longitude: center.longitude
         )
 
-        // 検索地点に近い6店舗を選ぶ
         let nearby = restaurants.sorted {
             CLLocation(latitude: $0.lat, longitude: $0.lng)
                 .distance(from: centerLocation)
@@ -279,19 +293,16 @@ struct HomeMapView: View {
         }
         .prefix(6)
 
-        // 選んだ店舗までの最大距離
         let maxDistance = nearby.map {
             CLLocation(latitude: $0.lat, longitude: $0.lng)
                 .distance(from: centerLocation)
         }.max() ?? 0
 
-        // 必要な表示範囲を計算（少し余裕を持たせる）
         let desiredDelta = min(
             max(maxDistance * 2.8 / 111_000, 0.005),
             0.02
         )
 
-        // 現在の表示範囲より狭くはしない
         let currentRegion = cameraPosition.region
 
         let latitudeDelta = max(
@@ -321,7 +332,7 @@ struct HomeMapView: View {
 
 #Preview {
     HomeMapView(
-        selectedGenre: .constant(""),
+        filters: .constant(SearchFilters()),
         showSearchFilter: .constant(false)
     )
 }

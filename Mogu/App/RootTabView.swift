@@ -9,7 +9,7 @@ import SwiftUI
 
 struct RootTabView: View {
 
-    @State private var selectedGenre = ""
+    @State private var filters = SearchFilters()
     @State private var showSearchFilter = false
 
     var body: some View {
@@ -18,12 +18,12 @@ struct RootTabView: View {
                 Group {
                     if showSearchFilter {
                         SearchFilterView(
-                            selectedGenre: $selectedGenre,
+                            filters: $filters,
                             showSearchFilter: $showSearchFilter
                         )
                     } else {
                         HomeMapView(
-                            selectedGenre: $selectedGenre,
+                            filters: $filters,
                             showSearchFilter: $showSearchFilter
                         )
                     }

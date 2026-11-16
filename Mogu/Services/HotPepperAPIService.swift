@@ -1,9 +1,4 @@
-//
-//  HotPepperAPIService.swift
-//  Mogu
-//
-//  Created by cmStudent on 2026/11/14.
-//
+
 import Foundation
 
 struct HotPepperAPIService {
@@ -12,7 +7,9 @@ struct HotPepperAPIService {
         latitude: Double,
         longitude: Double,
         apiKey: String,
-        genre: String? = nil
+        range: Int = 3,
+        genres: Set<String> = [],
+        budget: String? = nil
     ) async throws -> [Restaurant] {
 
         var components = URLComponents(
@@ -23,14 +20,20 @@ struct HotPepperAPIService {
             URLQueryItem(name: "key", value: apiKey),
             URLQueryItem(name: "lat", value: String(latitude)),
             URLQueryItem(name: "lng", value: String(longitude)),
-            URLQueryItem(name: "range", value: "3"),
+            URLQueryItem(name: "range", value: String(range)),
             URLQueryItem(name: "count", value: "40"),
             URLQueryItem(name: "format", value: "json")
         ]
 
-        if let genre = genre {
+        for genre in genres.sorted() {
             components.queryItems?.append(
                 URLQueryItem(name: "genre", value: genre)
+            )
+        }
+
+        if let budget = budget {
+            components.queryItems?.append(
+                URLQueryItem(name: "budget", value: budget)
             )
         }
 
@@ -38,13 +41,18 @@ struct HotPepperAPIService {
             throw URLError(.badURL)
         }
 
-        let (data, _) = try await URLSession.shared.data(from: url)
+        let (data, urlResponse) = try await URLSession.shared.data(from: url)
 
-        let response = try JSONDecoder().decode(
+        guard let httpResponse = urlResponse as? HTTPURLResponse,
+              200..<300 ~= httpResponse.statusCode else {
+            throw URLError(.badServerResponse)
+        }
+
+        let decodedResponse = try JSONDecoder().decode(
             RestaurantResponse.self,
             from: data
         )
 
-        return response.results.shop
+        return decodedResponse.results.shop
     }
 }

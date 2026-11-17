@@ -1,4 +1,3 @@
-
 import Foundation
 
 struct HotPepperAPIService {
@@ -9,7 +8,11 @@ struct HotPepperAPIService {
         apiKey: String,
         range: Int = 3,
         genres: Set<String> = [],
-        budget: String? = nil
+        budget: String? = nil,
+        openingHours: OpeningHoursFilter = .all,
+        partyCapacity: Int? = nil,
+        partyOptions: Set<PartyOption> = [],
+        preferences: Set<PreferenceOption> = []
     ) async throws -> [Restaurant] {
 
         var components = URLComponents(
@@ -34,6 +37,44 @@ struct HotPepperAPIService {
         if let budget = budget {
             components.queryItems?.append(
                 URLQueryItem(name: "budget", value: budget)
+            )
+        }
+
+        switch openingHours {
+        case .all:
+            break
+
+        case .lunch:
+            components.queryItems?.append(
+                URLQueryItem(name: "lunch", value: "1")
+            )
+
+        case .after23:
+            components.queryItems?.append(
+                URLQueryItem(name: "midnight", value: "1")
+            )
+
+        case .mealAfter23:
+            components.queryItems?.append(
+                URLQueryItem(name: "midnight_meal", value: "1")
+            )
+        }
+
+        if let partyCapacity = partyCapacity {
+            components.queryItems?.append(
+                URLQueryItem(name: "party_capacity", value: String(partyCapacity))
+            )
+        }
+
+        for option in partyOptions.sorted(by: { $0.rawValue < $1.rawValue }) {
+            components.queryItems?.append(
+                URLQueryItem(name: option.rawValue, value: "1")
+            )
+        }
+
+        for preference in preferences.sorted(by: { $0.rawValue < $1.rawValue }) {
+            components.queryItems?.append(
+                URLQueryItem(name: preference.rawValue, value: "1")
             )
         }
 

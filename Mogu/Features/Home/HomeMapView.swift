@@ -251,7 +251,11 @@ struct HomeMapView: View {
                 apiKey: apiKey,
                 range: filters.range,
                 genres: filters.selectedGenres,
-                budget: filters.budget
+                budget: filters.budget,
+                openingHours: filters.openingHours,
+                partyCapacity: filters.partyCapacity,
+                partyOptions: filters.selectedPartyOptions,
+                preferences: filters.selectedPreferences
             )
 
             let searchLocation = CLLocation(

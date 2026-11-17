@@ -124,29 +124,95 @@ struct SearchFilterView: View {
 
                 Divider()
 
-                filterRow(
-                    title: "営業時間",
-                    value: "指定なし",
-                    icon: "clock"
-                )
+                HStack(spacing: 14) {
+                    Image(systemName: "clock")
+                        .foregroundStyle(.brown)
+                        .frame(width: 24)
 
-                filterRow(
-                    title: "人数・宴会",
-                    value: "指定なし",
-                    icon: "person.2"
-                )
+                    Text("営業時間")
+                        .font(.subheadline)
 
-                filterRow(
-                    title: "決済方法",
-                    value: "すべて",
-                    icon: "creditcard"
-                )
+                    Spacer()
 
-                filterRow(
-                    title: "こだわり条件",
-                    value: "指定なし",
-                    icon: "slider.horizontal.3"
-                )
+                    Picker("営業時間", selection: $filters.openingHours) {
+                        Text("指定なし").tag(OpeningHoursFilter.all)
+                        Text("ランチ営業あり").tag(OpeningHoursFilter.lunch)
+                        Text("23時以降も営業").tag(OpeningHoursFilter.after23)
+                        Text("23時以降も食事OK").tag(OpeningHoursFilter.mealAfter23)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .tint(.brown)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 12)
+
+                Divider()
+
+                NavigationLink {
+                    PartyFilterView(filters: $filters)
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "person.2")
+                            .foregroundStyle(.brown)
+                            .frame(width: 24)
+
+                        Text("人数・宴会")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Spacer()
+
+                        Text(
+                            filters.partyCapacity == nil &&
+                            filters.selectedPartyOptions.isEmpty
+                            ? "指定なし" : "指定済み"
+                        )
+                        .font(.subheadline)
+                        .foregroundStyle(.brown)
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.brown)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+
+                NavigationLink {
+                    PreferenceFilterView(filters: $filters)
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "slider.horizontal.3")
+                            .foregroundStyle(.brown)
+                            .frame(width: 24)
+
+                        Text("こだわり条件")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Spacer()
+
+                        Text(
+                            filters.selectedPreferences.isEmpty
+                            ? "指定なし" : "指定済み"
+                        )
+                        .font(.subheadline)
+                        .foregroundStyle(.brown)
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.brown)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(.plain)
+
+                Divider()
             }
 
             Spacer()
@@ -224,36 +290,6 @@ struct SearchFilterView: View {
         ("韓国料理", "G017")
     ]
 
-    private func filterRow(
-        title: String,
-        value: String,
-        icon: String
-    ) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .foregroundStyle(.brown)
-                .frame(width: 24)
-
-            Text(title)
-                .font(.subheadline)
-
-            Spacer()
-
-            Text(value)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 18)
-        .overlay(alignment: .bottom) {
-            Divider()
-                .padding(.leading, 50)
-        }
-    }
 }
 
 #Preview {

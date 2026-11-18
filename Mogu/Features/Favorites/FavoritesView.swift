@@ -1,16 +1,13 @@
 
 import SwiftUI
-import CoreLocation
 
 struct FavoritesView: View {
     @EnvironmentObject private var favoritesStore: FavoritesStore
     @State private var filters = SearchFilters()
     @State private var showSearchFilter = false
     @State private var randomRestaurant: Restaurant?
-    @State private var showFilterAlert = false
     @State private var showNoResultsAlert = false
-    @StateObject private var locationService = LocationService()
-    
+
     private var filteredRestaurants: [Restaurant] {
         favoritesStore.favoriteRestaurants.filter { restaurant in
 
@@ -37,27 +34,17 @@ struct FavoritesView: View {
                         showSearchFilter: $showSearchFilter,
                         source: .favorites,
                         onRandom: {
-                            
-                            let hasUnsupportedFilters =
-                                filters.range != 0 ||
-                                filters.openingHours != .all ||
-                                filters.partyCapacity != nil ||
-                                !filters.selectedPartyOptions.isEmpty ||
-                                !filters.selectedPreferences.isEmpty
-
-                            if hasUnsupportedFilters {
-                                showFilterAlert = true
+                            if let restaurant = RestaurantRandomizer.pick(
+                                from: filteredRestaurants
+                            ) {
+                                randomRestaurant = restaurant
                             } else {
-                                if let restaurant = RestaurantRandomizer.pick(from: filteredRestaurants) {
-                                    randomRestaurant = restaurant
-                                } else {
-                                    showNoResultsAlert = true
-                                }
+                                showNoResultsAlert = true
                             }
                         }
                     )
                 } else {
-                    
+
                     if favoritesStore.favoriteRestaurants.isEmpty {
                         ContentUnavailableView(
                             "お気に入りはまだありません",
@@ -78,7 +65,9 @@ struct FavoritesView: View {
                                         RestaurantDetailView(restaurant: restaurant)
                                     } label: {
                                         HStack(spacing: 12) {
-                                            AsyncImage(url: URL(string: restaurant.photo.mobile.s)) { image in
+                                            AsyncImage(
+                                                url: URL(string: restaurant.photo.mobile.s)
+                                            ) { image in
                                                 image
                                                     .resizable()
                                                     .scaledToFill()
@@ -89,34 +78,34 @@ struct FavoritesView: View {
                                             .frame(width: 80, height: 80)
                                             .clipped()
                                             .clipShape(RoundedRectangle(cornerRadius: 10))
-                                            
+
                                             VStack(alignment: .leading, spacing: 5) {
                                                 Text(restaurant.name)
                                                     .font(.subheadline)
                                                     .bold()
                                                     .lineLimit(2)
-                                                
+
                                                 Text(restaurant.genre.name)
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
-                                                
+
                                                 Text(restaurant.budget.name)
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
                                             }
                                         }
-                                        .buttonStyle(.plain)
-                                        
-                                        Button {
-                                            favoritesStore.toggleFavorite(restaurant)
-                                        } label: {
-                                            Image(systemName: "heart.fill")
-                                                .font(.title3)
-                                                .foregroundStyle(.red)
-                                                .frame(width: 44, height: 44)
-                                        }
-                                        .buttonStyle(.plain)
                                     }
+                                    .buttonStyle(.plain)
+
+                                    Button {
+                                        favoritesStore.toggleFavorite(restaurant)
+                                    } label: {
+                                        Image(systemName: "heart.fill")
+                                            .font(.title3)
+                                            .foregroundStyle(.red)
+                                            .frame(width: 44, height: 44)
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
                         }
@@ -157,7 +146,7 @@ struct FavoritesView: View {
                 }
             }
         }
-        
+
         .alert("該当する店舗がありません", isPresented: $showNoResultsAlert) {
             Button("OK", role: .cancel) {}
         } message: {

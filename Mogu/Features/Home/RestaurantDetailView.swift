@@ -10,9 +10,12 @@ import SwiftUI
 
 struct RestaurantDetailView: View {
 
+    @EnvironmentObject private var candidateStore: CandidateStore
+
     let restaurant: Restaurant
 
     @State private var showSafari = false
+    @State private var candidateMessage: String?
 
     var body: some View {
         ScrollView {
@@ -100,11 +103,47 @@ struct RestaurantDetailView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    if candidateStore.lists.isEmpty {
+                        Button("候補リストを作成してください") {}
+                            .disabled(true)
+                    } else {
+                        ForEach(candidateStore.lists) { list in
+                            Button(list.name) {
+                                let wasAdded = candidateStore.addRestaurant(
+                                    restaurant,
+                                    to: list.id
+                                )
+                                candidateMessage = wasAdded
+                                    ? "「\(list.name)」に追加しました"
+                                    : "「\(list.name)」には追加済みです"
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "list.bullet.badge.plus")
+                        .foregroundStyle(.brown)
+                }
+            }
+        }
         .sheet(isPresented: $showSafari) {
             if let url = URL(string: restaurant.urls.pc) {
                 SafariView(url: url)
                     .ignoresSafeArea()
             }
+        }
+        .alert(
+            "候補リスト",
+            isPresented: Binding(
+                get: { candidateMessage != nil },
+                set: { if !$0 { candidateMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(candidateMessage ?? "")
         }
     }
 }

@@ -19,7 +19,7 @@ final class CandidateStore: ObservableObject {
             print("候補リストの読み込みエラー: \(error)")
         }
     }
-    
+
     func addList(name: String) {
         let list = CandidateList(name: name)
         lists.append(list)
@@ -40,17 +40,19 @@ final class CandidateStore: ObservableObject {
         saveLists()
     }
 
-    func addRestaurant(_ restaurant: Restaurant, to listID: UUID) {
+    @discardableResult
+    func addRestaurant(_ restaurant: Restaurant, to listID: UUID) -> Bool {
         guard let index = lists.firstIndex(where: { $0.id == listID }) else {
-            return
+            return false
         }
 
         guard !lists[index].restaurants.contains(where: { $0.id == restaurant.id }) else {
-            return
+            return false
         }
 
         lists[index].restaurants.append(restaurant)
         saveLists()
+        return true
     }
 
     func removeRestaurant(id: String, from listID: UUID) {

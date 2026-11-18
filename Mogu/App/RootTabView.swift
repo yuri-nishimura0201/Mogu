@@ -50,7 +50,7 @@ struct RootTabView: View {
         }
         .tint(.brown)
         .environmentObject(favoritesStore)
-        .environmentObject(candidateStore) // ← ここを追加！
+        .environmentObject(candidateStore)
     }
 }
 #Preview {

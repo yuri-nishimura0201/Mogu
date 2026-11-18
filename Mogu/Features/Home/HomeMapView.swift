@@ -14,10 +14,9 @@ struct HomeMapView: View {
     @State private var showSearchButton = false
     @State private var selectedRestaurant: Restaurant?
     @State private var isListExpanded = false
-    @State private var lastStationName: String?
     @Binding var filters: SearchFilters
     @Binding var showSearchFilter: Bool
-    
+
     var body: some View {
         ZStack(alignment: .top) {
 
@@ -47,74 +46,24 @@ struct HomeMapView: View {
                 }
             }
 
-            
+
             .onMapCameraChange(frequency: .onEnd) { context in
                 mapCenter = context.region.center
                 showSearchButton = true
             }
-            
+
             .onChange(of: showSearchFilter) { oldValue, newValue in
                 guard oldValue == true, newValue == false else { return }
-
-                if case .station(let name, let latitude, let longitude) = filters.location {
-                    let coordinate = CLLocationCoordinate2D(
-                        latitude: latitude,
-                        longitude: longitude
-                    )
-
-                    lastStationName = name
-
-                    cameraPosition = .region(
-                        MKCoordinateRegion(
-                            center: coordinate,
-                            span: MKCoordinateSpan(
-                                latitudeDelta: 0.01,
-                                longitudeDelta: 0.01
-                            )
-                        )
-                    )
-
-                    Task {
-                        await loadRestaurants(
-                            latitude: latitude,
-                            longitude: longitude
-                        )
-                    }
-                }
+                applySearchLocation()
             }
-            
+
             .onAppear {
-                if case .station(_, let latitude, let longitude) = filters.location {
-                    let coordinate = CLLocationCoordinate2D(
-                        latitude: latitude,
-                        longitude: longitude
-                    )
-
-                    cameraPosition = .region(
-                        MKCoordinateRegion(
-                            center: coordinate,
-                            span: MKCoordinateSpan(
-                                latitudeDelta: 0.01,
-                                longitudeDelta: 0.01
-                            )
-                        )
-                    )
-
-                    Task {
-                        await loadRestaurants(
-                            latitude: latitude,
-                            longitude: longitude
-                        )
-                    }
-                } else {
-                    locationService.requestLocation()
-                }
+                applySearchLocation()
             }
 
 
-            
+
             .onReceive(locationService.$coordinate.compactMap { $0 }) { coordinate in
-                // 駅を指定している場合は、現在地で地図を上書きしない
                 if case .station = filters.location {
                     return
                 }
@@ -137,13 +86,13 @@ struct HomeMapView: View {
                 }
             }
 
-            
+
             if showSearchButton {
                 Button {
                     guard let center = mapCenter else { return }
-                    
+
                     showSearchButton = false
-                    
+
                     Task {
                         await loadRestaurants(
                             latitude: center.latitude,
@@ -213,7 +162,7 @@ struct HomeMapView: View {
                 RestaurantDetailView(restaurant: restaurant)
             }
         }
-        
+
         .overlay(alignment: .topTrailing) {
             Button {
                 showSearchFilter = true
@@ -229,88 +178,119 @@ struct HomeMapView: View {
             .padding(.top, 12)
         }
     }
-    
-    
+
+
     private var restaurantList: some View {
         VStack(alignment: .leading, spacing: 12) {
-            
+
             Text("近くのお店 \(restaurants.count)件")
                 .font(.headline)
                 .padding(.horizontal)
-            
+
             ScrollView {
                 LazyVStack(spacing: 12) {
                     ForEach(restaurants) { restaurant in
                         HStack(spacing: 8) {
-                        NavigationLink {
-                            RestaurantDetailView(restaurant: restaurant)
-                        } label: {
-                            HStack(spacing: 12) {
-                                
-                                AsyncImage(
-                                    url: URL(string: restaurant.photo.mobile.s)
-                                ) { image in
-                                    image
-                                        .resizable()
-                                        .scaledToFill()
-                                } placeholder: {
-                                    Image(systemName: "fork.knife")
-                                        .foregroundStyle(.brown)
+                            NavigationLink {
+                                RestaurantDetailView(restaurant: restaurant)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    AsyncImage(
+                                        url: URL(string: restaurant.photo.mobile.s)
+                                    ) { image in
+                                        image
+                                            .resizable()
+                                            .scaledToFill()
+                                    } placeholder: {
+                                        Image(systemName: "fork.knife")
+                                            .foregroundStyle(.brown)
+                                    }
+                                    .frame(width: 80, height: 80)
+                                    .clipped()
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .padding(.leading, 20)
+
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text(restaurant.name)
+                                            .font(.subheadline)
+                                            .bold()
+                                            .lineLimit(2)
+
+                                        Text(restaurant.genre.name)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+
+                                        Text("予算目安：\(restaurant.budget.name)")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+
+                                        Text(restaurant.open)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(2)
+                                    }
+
+                                    Spacer()
                                 }
-                                .frame(width: 80, height: 80)
-                                .clipped()
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                                .padding(.leading,20)
-                                
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(restaurant.name)
-                                        .font(.subheadline)
-                                        .bold()
-                                        .lineLimit(2)
-                                    
-                                    Text(restaurant.genre.name)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    
-                                    Text("予算目安：\(restaurant.budget.name)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    
-                                    Text(restaurant.open)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(2)
-                                }
-                                
-                                Spacer()
                             }
                             .buttonStyle(.plain)
 
-                                    Button {
-                                        favoritesStore.toggleFavorite(restaurant)
-                                    } label: {
-                                        Image(
-                                            systemName: favoritesStore.isFavorite(restaurant.id)
-                                                ? "heart.fill"
-                                                : "heart"
-                                        )
-                                        .font(.title3)
-                                        .foregroundStyle(.red)
-                                        .frame(width: 44, height: 44)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .padding(.trailing, 12)
-                                }
-
-                                Divider()
+                            Button {
+                                favoritesStore.toggleFavorite(restaurant)
+                            } label: {
+                                Image(
+                                    systemName: favoritesStore.isFavorite(restaurant.id)
+                                        ? "heart.fill"
+                                        : "heart"
+                                )
+                                .font(.title3)
+                                .foregroundStyle(.red)
+                                .frame(width: 44, height: 44)
                             }
+                            .buttonStyle(.plain)
+                            .padding(.trailing, 12)
+                        }
+
+                        Divider()
                     }
                 }
             }
         }
         .padding(.top, 16)
     }
-    
+
+    private func applySearchLocation() {
+        showSearchButton = false
+
+        switch filters.location {
+        case .station(_, let latitude, let longitude):
+            let coordinate = CLLocationCoordinate2D(
+                latitude: latitude,
+                longitude: longitude
+            )
+            mapCenter = coordinate
+            cameraPosition = .region(
+                MKCoordinateRegion(
+                    center: coordinate,
+                    span: MKCoordinateSpan(
+                        latitudeDelta: 0.01,
+                        longitudeDelta: 0.01
+                    )
+                )
+            )
+
+            Task {
+                await loadRestaurants(
+                    latitude: latitude,
+                    longitude: longitude
+                )
+            }
+
+        case .unspecified, .currentLocation:
+            locationService.requestLocation()
+        }
+    }
+
     private func loadRestaurants(
         latitude: Double,
         longitude: Double
@@ -323,7 +303,7 @@ struct HomeMapView: View {
             print("APIキーを読み込めませんでした")
             return
         }
-        
+
         do {
             let result = try await HotPepperAPIService().fetchRestaurants(
                 latitude: latitude,
@@ -358,7 +338,7 @@ struct HomeMapView: View {
             print("API通信エラー: \(error)")
         }
     }
-    
+
     private func fitMapToRestaurants(_ restaurants: [Restaurant]) {
         guard !restaurants.isEmpty,
               let center = mapCenter else { return }

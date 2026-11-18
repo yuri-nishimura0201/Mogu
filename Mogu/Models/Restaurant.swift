@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Restaurant: Identifiable, Decodable {
+struct Restaurant: Identifiable, Codable {
     let id: String
     let name: String
     let address: String
@@ -21,11 +21,11 @@ struct Restaurant: Identifiable, Decodable {
     let urls: RestaurantURLs
 }
 
-struct RestaurantPhoto: Decodable {
+struct RestaurantPhoto: Codable {
     let mobile: RestaurantPhotoMobile
 }
 
-struct RestaurantPhotoMobile: Decodable {
+struct RestaurantPhotoMobile: Codable {
     let l: String
     let s: String
 }
@@ -38,14 +38,16 @@ struct RestaurantResults: Decodable {
     let shop: [Restaurant]
 }
 
-struct RestaurantGenre: Decodable {
+struct RestaurantGenre: Codable {
     let name: String
+    let code: String?
 }
 
-struct RestaurantBudget: Decodable {
+struct RestaurantBudget: Codable {
     let name: String
+    let code: String?
 }
 
-struct RestaurantURLs: Decodable {
+struct RestaurantURLs: Codable {
     let pc: String
 }

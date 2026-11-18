@@ -6,7 +6,7 @@ import Combine
 
 
 struct HomeMapView: View {
-    
+    @EnvironmentObject private var favoritesStore: FavoritesStore
     @StateObject private var locationService = LocationService()
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var restaurants: [Restaurant] = []
@@ -14,6 +14,7 @@ struct HomeMapView: View {
     @State private var showSearchButton = false
     @State private var selectedRestaurant: Restaurant?
     @State private var isListExpanded = false
+    @State private var lastStationName: String?
     @Binding var filters: SearchFilters
     @Binding var showSearchFilter: Bool
     
@@ -52,12 +53,72 @@ struct HomeMapView: View {
                 showSearchButton = true
             }
             
+            .onChange(of: showSearchFilter) { oldValue, newValue in
+                guard oldValue == true, newValue == false else { return }
+
+                if case .station(let name, let latitude, let longitude) = filters.location {
+                    let coordinate = CLLocationCoordinate2D(
+                        latitude: latitude,
+                        longitude: longitude
+                    )
+
+                    lastStationName = name
+
+                    cameraPosition = .region(
+                        MKCoordinateRegion(
+                            center: coordinate,
+                            span: MKCoordinateSpan(
+                                latitudeDelta: 0.01,
+                                longitudeDelta: 0.01
+                            )
+                        )
+                    )
+
+                    Task {
+                        await loadRestaurants(
+                            latitude: latitude,
+                            longitude: longitude
+                        )
+                    }
+                }
+            }
+            
             .onAppear {
-                locationService.requestLocation()
+                if case .station(_, let latitude, let longitude) = filters.location {
+                    let coordinate = CLLocationCoordinate2D(
+                        latitude: latitude,
+                        longitude: longitude
+                    )
+
+                    cameraPosition = .region(
+                        MKCoordinateRegion(
+                            center: coordinate,
+                            span: MKCoordinateSpan(
+                                latitudeDelta: 0.01,
+                                longitudeDelta: 0.01
+                            )
+                        )
+                    )
+
+                    Task {
+                        await loadRestaurants(
+                            latitude: latitude,
+                            longitude: longitude
+                        )
+                    }
+                } else {
+                    locationService.requestLocation()
+                }
             }
 
-            .onReceive(locationService.$coordinate.compactMap { $0 }) {
-                coordinate in
+
+            
+            .onReceive(locationService.$coordinate.compactMap { $0 }) { coordinate in
+                // 駅を指定している場合は、現在地で地図を上書きしない
+                if case .station = filters.location {
+                    return
+                }
+
                 cameraPosition = .region(
                     MKCoordinateRegion(
                         center: coordinate,
@@ -67,7 +128,7 @@ struct HomeMapView: View {
                         )
                     )
                 )
-                
+
                 Task {
                     await loadRestaurants(
                         latitude: coordinate.latitude,
@@ -75,6 +136,7 @@ struct HomeMapView: View {
                     )
                 }
             }
+
             
             if showSearchButton {
                 Button {
@@ -179,6 +241,7 @@ struct HomeMapView: View {
             ScrollView {
                 LazyVStack(spacing: 12) {
                     ForEach(restaurants) { restaurant in
+                        HStack(spacing: 8) {
                         NavigationLink {
                             RestaurantDetailView(restaurant: restaurant)
                         } label: {
@@ -197,6 +260,7 @@ struct HomeMapView: View {
                                 .frame(width: 80, height: 80)
                                 .clipped()
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .padding(.leading,20)
                                 
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(restaurant.name)
@@ -220,10 +284,26 @@ struct HomeMapView: View {
                                 
                                 Spacer()
                             }
-                            .padding(.horizontal)
-                            
-                            Divider()
-                        }
+                            .buttonStyle(.plain)
+
+                                    Button {
+                                        favoritesStore.toggleFavorite(restaurant)
+                                    } label: {
+                                        Image(
+                                            systemName: favoritesStore.isFavorite(restaurant.id)
+                                                ? "heart.fill"
+                                                : "heart"
+                                        )
+                                        .font(.title3)
+                                        .foregroundStyle(.red)
+                                        .frame(width: 44, height: 44)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.trailing, 12)
+                                }
+
+                                Divider()
+                            }
                     }
                 }
             }
@@ -249,7 +329,7 @@ struct HomeMapView: View {
                 latitude: latitude,
                 longitude: longitude,
                 apiKey: apiKey,
-                range: filters.range,
+                range: filters.range == 0 ? 5 : filters.range,
                 genres: filters.selectedGenres,
                 budget: filters.budget,
                 openingHours: filters.openingHours,
@@ -339,4 +419,5 @@ struct HomeMapView: View {
         filters: .constant(SearchFilters()),
         showSearchFilter: .constant(false)
     )
+    .environmentObject(FavoritesStore())
 }

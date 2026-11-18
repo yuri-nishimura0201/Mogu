@@ -1,3 +1,9 @@
+enum SearchLocation {
+    case unspecified
+    case currentLocation
+    case station(name: String, latitude: Double, longitude: Double)
+}
+
 enum OpeningHoursFilter {
     case all
     case lunch
@@ -7,12 +13,13 @@ enum OpeningHoursFilter {
 
 struct SearchFilters {
     var selectedGenres: Set<String> = []
-    var range: Int = 3
+    var range: Int = 0
     var budget: String?
     var openingHours: OpeningHoursFilter = .all
     var partyCapacity: Int?
     var selectedPartyOptions: Set<PartyOption> = []
     var selectedPreferences: Set<PreferenceOption> = []
+    var location: SearchLocation = .unspecified
 }
 
 enum PartyOption: String, Hashable {

@@ -11,6 +11,8 @@ struct RootTabView: View {
 
     @State private var filters = SearchFilters()
     @State private var showSearchFilter = false
+    @StateObject private var favoritesStore = FavoritesStore()
+    @StateObject private var candidateStore = CandidateStore()
 
     var body: some View {
         TabView {
@@ -33,15 +35,13 @@ struct RootTabView: View {
                 Label("ホーム", systemImage: "house")
             }
 
-            Text("お気に入り画面")
+            FavoritesView()
                 .tabItem {
                     Label("お気に入り", systemImage: "heart")
                 }
 
-            Text("共有画面")
-                .tabItem {
-                    Label("共有", systemImage: "person.2")
-                }
+            CandidateListsView()
+                .tabItem { Label("候補リスト", systemImage: "list.bullet") }
 
             Text("設定画面")
                 .tabItem {
@@ -49,11 +49,10 @@ struct RootTabView: View {
                 }
         }
         .tint(.brown)
+        .environmentObject(favoritesStore)
+        .environmentObject(candidateStore) // ← ここを追加！
     }
-
-
 }
-
 #Preview {
     RootTabView()
 }

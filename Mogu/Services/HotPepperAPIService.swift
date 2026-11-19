@@ -1,7 +1,6 @@
 import Foundation
 
 struct HotPepperAPIService {
-
     func fetchRestaurants(
         latitude: Double,
         longitude: Double,
@@ -12,7 +11,8 @@ struct HotPepperAPIService {
         openingHours: OpeningHoursFilter = .all,
         partyCapacity: Int? = nil,
         partyOptions: Set<PartyOption> = [],
-        preferences: Set<PreferenceOption> = []
+        preferences: Set<PreferenceOption> = [],
+        start: Int = 1
     ) async throws -> [Restaurant] {
 
         var components = URLComponents(
@@ -25,6 +25,7 @@ struct HotPepperAPIService {
             URLQueryItem(name: "lng", value: String(longitude)),
             URLQueryItem(name: "range", value: String(range)),
             URLQueryItem(name: "count", value: "40"),
+            URLQueryItem(name: "start", value: String(start)),
             URLQueryItem(name: "format", value: "json")
         ]
 

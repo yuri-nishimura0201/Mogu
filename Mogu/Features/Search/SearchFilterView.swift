@@ -38,7 +38,6 @@ struct SearchFilterView: View {
 
             ScrollView {
             VStack(spacing: 0) {
-                if source == .home {
 
                 HStack(spacing: 14) {
                     Image(systemName: "location")
@@ -135,7 +134,7 @@ struct SearchFilterView: View {
                 }
 
                 Divider()
-                }
+
 
                 VStack(alignment: .leading, spacing: 12) {
                     Label("ジャンル", systemImage: "fork.knife")
@@ -208,7 +207,6 @@ struct SearchFilterView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 12)
 
-                if source == .home {
                 Divider()
 
                 HStack(spacing: 14) {
@@ -300,7 +298,6 @@ struct SearchFilterView: View {
                 .buttonStyle(.plain)
 
                 Divider()
-                }
             }
             }
 

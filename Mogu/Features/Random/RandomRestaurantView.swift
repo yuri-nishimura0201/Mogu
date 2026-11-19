@@ -1,7 +1,10 @@
 import SwiftUI
 
 struct RandomRestaurantView: View {
+    @Environment(\.dismiss) private var dismiss
+
     let restaurant: Restaurant
+    let onRetry: () -> Void
 
     var body: some View {
         VStack(spacing: 20) {
@@ -40,6 +43,34 @@ struct RandomRestaurantView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(.brown, in: RoundedRectangle(cornerRadius: 14))
+            }
+
+            Button {
+                onRetry()
+            } label: {
+                Label("もう一度選ぶ", systemImage: "shuffle")
+                    .font(.headline)
+                    .foregroundStyle(.brown)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        Color.brown.opacity(0.1),
+                        in: RoundedRectangle(cornerRadius: 14)
+                    )
+            }
+
+            Button {
+                dismiss()
+            } label: {
+                Label("前に戻る", systemImage: "arrow.left")
+                    .font(.headline)
+                    .foregroundStyle(.brown)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.brown, lineWidth: 1)
+                    }
             }
 
             Spacer()

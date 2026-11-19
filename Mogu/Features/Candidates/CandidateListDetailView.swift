@@ -14,6 +14,23 @@ struct CandidateListDetailView: View {
         candidateStore.lists.first { $0.id == listID }
     }
 
+    private var shareText: String {
+        guard let list = candidateList else {
+            return ""
+        }
+
+        var text = "Mogu 候補リスト\n\(list.name)\n\n"
+
+        for (index, restaurant) in list.restaurants.enumerated() {
+            text += "\(index + 1). \(restaurant.name)\n"
+            text += "予算：\(restaurant.budget.name)\n"
+            text += "\(restaurant.urls.pc)\n\n"
+        }
+
+        return text
+    }
+
+
     var body: some View {
         Group {
             if let list = candidateList {
@@ -78,7 +95,7 @@ struct CandidateListDetailView: View {
         }
         .navigationTitle(candidateList?.name ?? "候補リスト")
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
                     editedName = candidateList?.name ?? ""
                     showRenameAlert = true
@@ -87,8 +104,15 @@ struct CandidateListDetailView: View {
                         .foregroundStyle(.brown)
                 }
                 .disabled(candidateList == nil)
+
+                ShareLink(item: shareText) {
+                    Image(systemName: "square.and.arrow.up")
+                        .foregroundStyle(.brown)
+                }
+                .disabled(candidateList?.restaurants.isEmpty ?? true)
             }
         }
+
         .alert("リスト名を変更", isPresented: $showRenameAlert) {
             TextField("リスト名", text: $editedName)
 

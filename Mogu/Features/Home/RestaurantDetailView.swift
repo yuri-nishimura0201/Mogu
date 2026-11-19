@@ -11,6 +11,7 @@ import SwiftUI
 struct RestaurantDetailView: View {
 
     @EnvironmentObject private var candidateStore: CandidateStore
+    @EnvironmentObject private var favoritesStore: FavoritesStore
 
     let restaurant: Restaurant
 
@@ -105,29 +106,43 @@ struct RestaurantDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    if candidateStore.lists.isEmpty {
-                        Button("候補リストを作成してください") {}
-                            .disabled(true)
-                    } else {
-                        ForEach(candidateStore.lists) { list in
-                            Button(list.name) {
-                                let wasAdded = candidateStore.addRestaurant(
-                                    restaurant,
-                                    to: list.id
-                                )
-                                candidateMessage = wasAdded
-                                    ? "「\(list.name)」に追加しました"
-                                    : "「\(list.name)」には追加済みです"
+                HStack(spacing: 16) {
+                    Button {
+                        favoritesStore.toggleFavorite(restaurant)
+                    } label: {
+                        Image(
+                            systemName: favoritesStore.isFavorite(restaurant.id)
+                                ? "heart.fill"
+                                : "heart"
+                        )
+                        .foregroundStyle(.red)
+                    }
+
+                    Menu {
+                        if candidateStore.lists.isEmpty {
+                            Button("候補リストを作成してください") {}
+                                .disabled(true)
+                        } else {
+                            ForEach(candidateStore.lists) { list in
+                                Button(list.name) {
+                                    let wasAdded = candidateStore.addRestaurant(
+                                        restaurant,
+                                        to: list.id
+                                    )
+                                    candidateMessage = wasAdded
+                                        ? "「\(list.name)」に追加しました"
+                                        : "「\(list.name)」には追加済みです"
+                                }
                             }
                         }
+                    } label: {
+                        Image(systemName: "list.bullet")
+                            .foregroundStyle(.brown)
                     }
-                } label: {
-                    Image(systemName: "list.bullet.badge.plus")
-                        .foregroundStyle(.brown)
                 }
             }
         }
+
         .sheet(isPresented: $showSafari) {
             if let url = URL(string: restaurant.urls.pc) {
                 SafariView(url: url)

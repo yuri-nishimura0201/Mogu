@@ -9,13 +9,16 @@ struct HomeMapView: View {
     @EnvironmentObject private var favoritesStore: FavoritesStore
     @StateObject private var locationService = LocationService()
     @State private var cameraPosition: MapCameraPosition = .automatic
-    @State private var restaurants: [Restaurant] = []
     @State private var mapCenter: CLLocationCoordinate2D?
     @State private var showSearchButton = false
     @State private var selectedRestaurant: Restaurant?
+    @State private var candidateRestaurant: Restaurant?
+    @State private var showCandidateSelection = false
     @State private var isListExpanded = false
     @Binding var filters: SearchFilters
     @Binding var showSearchFilter: Bool
+    @Binding var restaurants: [Restaurant]
+    @Binding var currentCoordinate: CLLocationCoordinate2D?
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -64,6 +67,9 @@ struct HomeMapView: View {
 
 
             .onReceive(locationService.$coordinate.compactMap { $0 }) { coordinate in
+
+                currentCoordinate = coordinate
+
                 if case .station = filters.location {
                     return
                 }
@@ -177,7 +183,14 @@ struct HomeMapView: View {
             .padding(.trailing, 16)
             .padding(.top, 12)
         }
+
+        .sheet(isPresented: $showCandidateSelection) {
+            if let restaurant = candidateRestaurant {
+                CandidateSelectionView(restaurant: restaurant)
+            }
+        }
     }
+
 
 
     private var restaurantList: some View {
@@ -246,6 +259,17 @@ struct HomeMapView: View {
                                 .font(.title3)
                                 .foregroundStyle(.red)
                                 .frame(width: 44, height: 44)
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                candidateRestaurant = restaurant
+                                showCandidateSelection = true
+                            } label: {
+                                Image(systemName: "list.bullet.circle")
+                                    .font(.title3)
+                                    .foregroundStyle(.brown)
+                                    .frame(width: 44, height: 44)
                             }
                             .buttonStyle(.plain)
                             .padding(.trailing, 12)
@@ -397,7 +421,10 @@ struct HomeMapView: View {
 #Preview {
     HomeMapView(
         filters: .constant(SearchFilters()),
-        showSearchFilter: .constant(false)
+        showSearchFilter: .constant(false),
+        restaurants: .constant([]),
+        currentCoordinate: .constant(nil)
     )
     .environmentObject(FavoritesStore())
+    .environmentObject(CandidateStore())
 }

@@ -135,7 +135,8 @@ struct RootTabView: View {
                 openingHours: filters.openingHours,
                 partyCapacity: filters.partyCapacity,
                 partyOptions: filters.selectedPartyOptions,
-                preferences: filters.selectedPreferences
+                preferences: filters.selectedPreferences,
+                name: filters.restaurantName
             )
 
             randomRestaurant = RestaurantRandomizer.pick(

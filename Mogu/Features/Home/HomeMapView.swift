@@ -11,10 +11,11 @@ struct HomeMapView: View {
     @State private var cameraPosition: MapCameraPosition = .automatic
     @State private var mapCenter: CLLocationCoordinate2D?
     @State private var showSearchButton = false
+    @State private var showGenreLegend = false
     @State private var selectedRestaurant: Restaurant?
     @State private var candidateRestaurant: Restaurant?
-    @State private var showCandidateSelection = false
     @State private var isListExpanded = false
+    @State private var highlightedRestaurantID: String?
     @Binding var filters: SearchFilters
     @Binding var showSearchFilter: Bool
     @Binding var restaurants: [Restaurant]
@@ -37,21 +38,63 @@ struct HomeMapView: View {
                         } label: {
                             Image(systemName: "mappin.circle.fill")
                                 .font(.system(size: 34))
-                                .foregroundStyle(.brown)
+                                .foregroundStyle(
+                                    RestaurantGenreColor.color(for: restaurant.genre.code)
+                                )
                                 .background(
                                     Circle()
                                         .fill(.white)
-                                        .frame(width: 28, height: 28)
+                                        .frame(width: 38, height: 38)
+                                        .shadow(
+                                            color: .black.opacity(0.15),
+                                            radius: 3,
+                                            x: 0,
+                                            y: 2
+                                        )
                                 )
                         }
                         .buttonStyle(.plain)
+                        .scaleEffect(
+                            highlightedRestaurantID == restaurant.id ? 1.6 : 1.0
+                        )
+                        .offset(
+                            y: highlightedRestaurantID == restaurant.id ? -14 : 0
+                        )
                     }
+                    .mapOverlayLevel(
+                        level: highlightedRestaurantID == restaurant.id
+                            ? .aboveLabels
+                            : .aboveRoads
+                    )
                 }
             }
 
 
             .onMapCameraChange(frequency: .onEnd) { context in
+
                 mapCenter = context.region.center
+
+                if let selectedID = highlightedRestaurantID,
+                   let restaurant = restaurants.first(where: { $0.id == selectedID }) {
+
+                    let mapLocation = CLLocation(
+                        latitude: context.region.center.latitude,
+                        longitude: context.region.center.longitude
+                    )
+
+                    let restaurantLocation = CLLocation(
+                        latitude: restaurant.lat,
+                        longitude: restaurant.lng
+                    )
+
+                    if mapLocation.distance(from: restaurantLocation) < 100 {
+                        showSearchButton = false
+                        return
+                    }
+
+                    highlightedRestaurantID = nil
+                }
+
                 showSearchButton = true
             }
 
@@ -169,6 +212,10 @@ struct HomeMapView: View {
             }
         }
 
+        .overlay(alignment: .topLeading) {
+            genreLegend
+        }
+
         .overlay(alignment: .topTrailing) {
             Button {
                 showSearchFilter = true
@@ -184,12 +231,78 @@ struct HomeMapView: View {
             .padding(.top, 12)
         }
 
-        .sheet(isPresented: $showCandidateSelection) {
-            if let restaurant = candidateRestaurant {
-                CandidateSelectionView(restaurant: restaurant)
-            }
+        .sheet(item: $candidateRestaurant) { restaurant in
+            CandidateSelectionView(restaurant: restaurant)
         }
     }
+
+    private var genreLegend: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showGenreLegend.toggle()
+                }
+            } label: {
+                Image(systemName: "paintpalette")
+                    .font(.title3)
+                    .foregroundStyle(.brown)
+                    .frame(width: 44, height: 44)
+                    .background(.regularMaterial, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("ジャンルの色")
+
+            if showGenreLegend {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(genreLegendItems.indices, id: \.self) { index in
+                            HStack(spacing: 10) {
+                                Circle()
+                                    .fill(
+                                        RestaurantGenreColor.color(
+                                            for: genreLegendItems[index].code
+                                        )
+                                    )
+                                    .frame(width: 16, height: 16)
+
+                                Text(genreLegendItems[index].name)
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                    .padding(14)
+                }
+                .frame(width: 240, height: 300)
+                .background(
+                    .regularMaterial,
+                    in: RoundedRectangle(cornerRadius: 14)
+                )
+                .shadow(color: .black.opacity(0.12), radius: 5, y: 3)
+            }
+        }
+        .padding(.leading, 16)
+        .padding(.top, 12)
+    }
+
+    private let genreLegendItems: [(code: String, name: String)] = [
+        ("G001", "居酒屋"),
+        ("G002", "ダイニングバー・バル"),
+        ("G003", "創作料理"),
+        ("G004", "和食"),
+        ("G005", "洋食"),
+        ("G006", "イタリアン・フレンチ"),
+        ("G007", "中華"),
+        ("G008", "焼肉・ホルモン"),
+        ("G009", "アジア・エスニック料理"),
+        ("G010", "各国料理"),
+        ("G011", "カラオケ・パーティ"),
+        ("G012", "バー・カクテル"),
+        ("G013", "ラーメン"),
+        ("G014", "カフェ・スイーツ"),
+        ("G015", "その他グルメ"),
+        ("G016", "お好み焼き・もんじゃ"),
+        ("G017", "韓国料理")
+    ]
 
 
 
@@ -204,8 +317,8 @@ struct HomeMapView: View {
                 LazyVStack(spacing: 12) {
                     ForEach(restaurants) { restaurant in
                         HStack(spacing: 8) {
-                            NavigationLink {
-                                RestaurantDetailView(restaurant: restaurant)
+                            Button {
+                                focusOnRestaurant(restaurant)
                             } label: {
                                 HStack(spacing: 12) {
                                     AsyncImage(
@@ -221,6 +334,13 @@ struct HomeMapView: View {
                                     .frame(width: 80, height: 80)
                                     .clipped()
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .strokeBorder(
+                                                RestaurantGenreColor.color(for: restaurant.genre.code),
+                                                lineWidth: 4
+                                            )
+                                    )
                                     .padding(.leading, 20)
 
                                     VStack(alignment: .leading, spacing: 5) {
@@ -248,6 +368,17 @@ struct HomeMapView: View {
                             }
                             .buttonStyle(.plain)
 
+                            NavigationLink {
+                                RestaurantDetailView(restaurant: restaurant)
+                            } label: {
+                                Image(systemName: "info.circle")
+                                    .font(.title3)
+                                    .foregroundStyle(.brown)
+                                    .frame(width: 32, height: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("\(restaurant.name)の詳細を見る")
+
                             Button {
                                 favoritesStore.toggleFavorite(restaurant)
                             } label: {
@@ -264,7 +395,6 @@ struct HomeMapView: View {
 
                             Button {
                                 candidateRestaurant = restaurant
-                                showCandidateSelection = true
                             } label: {
                                 Image(systemName: "list.bullet.circle")
                                     .font(.title3)
@@ -281,6 +411,31 @@ struct HomeMapView: View {
             }
         }
         .padding(.top, 16)
+    }
+
+    private func focusOnRestaurant(_ restaurant: Restaurant) {
+
+        let coordinate = CLLocationCoordinate2D(
+            latitude: restaurant.lat,
+            longitude: restaurant.lng
+        )
+
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.65)) {
+            highlightedRestaurantID = restaurant.id
+            isListExpanded = false
+        }
+
+        withAnimation(.easeInOut(duration: 0.5)) {
+            cameraPosition = .region(
+                MKCoordinateRegion(
+                    center: coordinate,
+                    span: MKCoordinateSpan(
+                        latitudeDelta: 0.008,
+                        longitudeDelta: 0.008
+                    )
+                )
+            )
+        }
     }
 
     private func applySearchLocation() {
@@ -339,7 +494,8 @@ struct HomeMapView: View {
                 openingHours: filters.openingHours,
                 partyCapacity: filters.partyCapacity,
                 partyOptions: filters.selectedPartyOptions,
-                preferences: filters.selectedPreferences
+                preferences: filters.selectedPreferences,
+                name: filters.restaurantName
             )
 
             let searchLocation = CLLocation(

@@ -9,7 +9,6 @@ struct FavoritesView: View {
     @State private var randomRestaurant: Restaurant?
     @State private var showNoResultsAlert = false
     @State private var candidateRestaurant: Restaurant?
-    @State private var showCandidateSelection = false
     @StateObject private var locationService = LocationService()
     @State private var matchedFavoriteIDs: Set<String>?
 
@@ -272,7 +271,6 @@ struct FavoritesView: View {
 
                                     Button {
                                         candidateRestaurant = restaurant
-                                        showCandidateSelection = true
                                     } label: {
                                         Image(systemName: "list.bullet.circle")
                                             .font(.system(size: 24))
@@ -333,10 +331,8 @@ struct FavoritesView: View {
             locationService.requestLocation()
         }
 
-        .sheet(isPresented: $showCandidateSelection) {
-            if let restaurant = candidateRestaurant {
-                CandidateSelectionView(restaurant: restaurant)
-            }
+        .sheet(item: $candidateRestaurant) { restaurant in
+            CandidateSelectionView(restaurant: restaurant)
         }
 
         .alert("該当する店舗がありません", isPresented: $showNoResultsAlert) {

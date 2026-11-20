@@ -11,10 +11,11 @@ struct SearchFilterView: View {
 
     @Binding var filters: SearchFilters
     @Binding var showSearchFilter: Bool
-
     var source: SearchSource = .home
     var onRandom: (() -> Void)?
     @State private var stationName = ""
+    @StateObject private var stationSuggestions = StationSuggestionService()
+    @FocusState private var isStationFieldFocused: Bool
     @State private var isSearchingStation = false
     @State private var stationSearchError = false
 
@@ -37,268 +38,354 @@ struct SearchFilterView: View {
             Divider()
 
             ScrollView {
-            VStack(spacing: 0) {
+                VStack(spacing: 0) {
 
-                HStack(spacing: 14) {
-                    Image(systemName: "location")
-                        .foregroundStyle(.brown)
-                        .frame(width: 24)
+                    HStack(spacing: 14) {
+                        Image(systemName: "location")
+                            .foregroundStyle(.brown)
+                            .frame(width: 24)
 
-                    Text("エリア・場所")
-                        .font(.subheadline)
+                        Text("エリア・場所")
+                            .font(.subheadline)
 
-                    Spacer()
+                        Spacer()
 
-                    Picker("場所", selection: Binding(
-                        get: {
-                            switch filters.location {
-                            case .unspecified: return 0
-                            case .currentLocation: return 1
-                            case .station: return 2
-                            }
-                        },
-                        set: { value in
-                            switch value {
-                            case 0:
-                                filters.location = .unspecified
-                            case 1:
-                                filters.location = .currentLocation
-                            default:
-                                break
-                            }
-                        }
-                    )) {
-                        Text("指定なし").tag(0)
-                        Text("現在地").tag(1)
-                        if case .station = filters.location {
-                            Text("駅指定").tag(2)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .tint(.brown)
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 12)
-
-                Divider()
-
-                HStack(spacing: 14) {
-                    Image(systemName: "ruler")
-                        .foregroundStyle(.brown)
-                        .frame(width: 24)
-
-                    Text("検索範囲")
-                        .font(.subheadline)
-
-                    Spacer()
-
-                    Picker("検索範囲", selection: $filters.range) {
-                        ForEach(searchRanges, id: \.value) { range in
-                            Text(range.name)
-                                .tag(range.value)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .tint(.brown)
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 12)
-
-                HStack(spacing: 12) {
-                    Image(systemName: "tram.fill")
-                        .foregroundStyle(.brown)
-                        .frame(width: 24)
-
-                    TextField("駅名を入力（例：新宿駅）", text: $stationName)
-                        .textFieldStyle(.roundedBorder)
-                        .submitLabel(.search)
-                        .onSubmit {
-                            Task {
-                                await searchStation()
-                            }
-                        }
-
-                    if isSearchingStation {
-                        ProgressView()
-                    }
-                }
-
-                if case .station(let name, _, _) = filters.location {
-                    Text("選択中：\(name)")
-                        .font(.caption)
-                        .foregroundStyle(.brown)
-                        .padding(.horizontal)
-                        .padding(.bottom, 12)
-                }
-
-                Divider()
-
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Label("ジャンル", systemImage: "fork.knife")
-                        .font(.subheadline)
-                        .foregroundStyle(.brown)
-                        .padding(.horizontal)
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(genres, id: \.code) { genre in
-                                Button {
-                                    if genre.code.isEmpty {
-                                        filters.selectedGenres.removeAll()
-                                    } else if filters.selectedGenres.contains(genre.code) {
-                                        filters.selectedGenres.remove(genre.code)
-                                    } else {
-                                        filters.selectedGenres.insert(genre.code)
-                                    }
-                                } label: {
-
-                                    Text(genre.name)
-                                        .font(.subheadline)
-                                        .foregroundStyle(
-                                            isSelected(genre.code) ? Color.white : Color.brown
-                                        )
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 10)
-                                        .background(
-                                            isSelected(genre.code) ? Color.brown : Color.white,
-                                            in: Capsule()
-                                        )
-
+                        Picker("場所", selection: Binding(
+                            get: {
+                                switch filters.location {
+                                case .unspecified: return 0
+                                case .currentLocation: return 1
+                                case .station: return 2
                                 }
-                                .buttonStyle(.plain)
+                            },
+                            set: { value in
+                                switch value {
+                                case 0:
+                                    filters.location = .unspecified
+                                case 1:
+                                    filters.location = .currentLocation
+                                default:
+                                    break
+                                }
+                            }
+                        )) {
+                            Text("指定なし").tag(0)
+                            Text("現在地").tag(1)
+                            if case .station = filters.location {
+                                Text("駅指定").tag(2)
                             }
                         }
-                        .padding(.horizontal)
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .tint(.brown)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
+
+                    Divider()
+
+                    HStack(spacing: 14) {
+                        Image(systemName: "ruler")
+                            .foregroundStyle(.brown)
+                            .frame(width: 24)
+
+                        Text("検索範囲")
+                            .font(.subheadline)
+
+                        Spacer()
+
+                        Picker("検索範囲", selection: $filters.range) {
+                            ForEach(searchRanges, id: \.value) { range in
+                                Text(range.name)
+                                    .tag(range.value)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .tint(.brown)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
+
+                    VStack(spacing: 4) {
+
+                        HStack(spacing: 12) {
+                            Image(systemName: "tram.fill")
+                                .foregroundStyle(.brown)
+                                .frame(width: 24)
+
+                            TextField("駅名を入力（例：新宿駅）", text: $stationName)
+                                .textFieldStyle(.roundedBorder)
+                                .submitLabel(.search)
+                                .focused($isStationFieldFocused)
+                                .onChange(of: stationName) { _, newValue in
+                                    if isStationFieldFocused {
+                                        stationSuggestions.update(query: newValue)
+                                    }
+                                }
+                                .onChange(of: isStationFieldFocused) { _, focused in
+                                    if focused {
+                                        stationSuggestions.update(query: stationName)
+                                    } else {
+                                        stationSuggestions.clear()
+                                    }
+                                }
+                                .onSubmit {
+                                    Task {
+                                        await searchStation()
+                                    }
+                                }
+
+                            if isSearchingStation {
+                                ProgressView()
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+
+                        if isStationFieldFocused && !stationSuggestions.suggestions.isEmpty {
+                            VStack(spacing: 0) {
+                                ForEach(
+                                    Array(stationSuggestions.suggestions.prefix(5).enumerated()),
+                                    id: \.offset
+                                ) { item in
+
+                                    Button {
+                                        isStationFieldFocused = false
+
+                                        Task {
+                                            await selectStation(item.element)
+                                        }
+                                    } label: {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: "tram.fill")
+                                                .foregroundStyle(.brown)
+
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text(item.element.title)
+                                                    .font(.subheadline)
+                                                    .foregroundStyle(.primary)
+
+                                                if !item.element.subtitle.isEmpty {
+                                                    Text(item.element.subtitle)
+                                                        .font(.caption)
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                            }
+
+                                            Spacer()
+                                        }
+                                        .padding(12)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    if item.offset < min(stationSuggestions.suggestions.count, 5) - 1 {
+                                        Divider()
+                                    }
+                                }
+                            }
+                            .background(
+                                .regularMaterial,
+                                in: RoundedRectangle(cornerRadius: 12)
+                            )
+                            .padding(.horizontal, 16)
+                        }
+                    }
+
+                    if source == .home {
+                        Divider()
+
+                        HStack(spacing: 12) {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundStyle(.brown)
+                                .frame(width: 24)
+
+                            TextField(
+                                "店舗名で検索（例：サイゼリヤ）",
+                                text: $filters.restaurantName
+                            )
+                            .textFieldStyle(.roundedBorder)
+                            .submitLabel(.done)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                    }
+
+                    if case .station(let name, _, _) = filters.location {
+                        Text("選択中：\(name)")
+                            .font(.caption)
+                            .foregroundStyle(.brown)
+                            .padding(.horizontal)
+                            .padding(.bottom, 12)
                     }
 
                     Divider()
-                }
-                .padding(.vertical, 14)
 
-                HStack(spacing: 14) {
-                    Image(systemName: "yensign.circle")
-                        .foregroundStyle(.brown)
-                        .frame(width: 24)
 
-                    Text("予算")
-                        .font(.subheadline)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("ジャンル", systemImage: "fork.knife")
+                            .font(.subheadline)
+                            .foregroundStyle(.brown)
+                            .padding(.horizontal)
 
-                    Spacer()
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(genres, id: \.code) { genre in
+                                    Button {
+                                        if genre.code.isEmpty {
+                                            filters.selectedGenres.removeAll()
+                                        } else if filters.selectedGenres.contains(genre.code) {
+                                            filters.selectedGenres.remove(genre.code)
+                                        } else {
+                                            filters.selectedGenres.insert(genre.code)
+                                        }
+                                    } label: {
 
-                    Picker(
-                        "予算",
-                        selection: Binding(
-                            get: { filters.budget ?? "" },
-                            set: { filters.budget = $0.isEmpty ? nil : $0 }
-                        )
-                    ) {
-                        ForEach(budgets, id: \.code) { budget in
-                            Text(budget.name)
-                                .tag(budget.code)
+                                        Text(genre.name)
+                                            .font(.subheadline)
+                                            .foregroundStyle(
+                                                isSelected(genre.code) ? Color.white : Color.brown
+                                            )
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 10)
+                                            .background(
+                                                isSelected(genre.code) ? Color.brown : Color.white,
+                                                in: Capsule()
+                                            )
+
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal)
                         }
+
+                        Divider()
                     }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .tint(.brown)
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 12)
+                    .padding(.vertical, 14)
 
-                Divider()
-
-                HStack(spacing: 14) {
-                    Image(systemName: "clock")
-                        .foregroundStyle(.brown)
-                        .frame(width: 24)
-
-                    Text("営業時間")
-                        .font(.subheadline)
-
-                    Spacer()
-
-                    Picker("営業時間", selection: $filters.openingHours) {
-                        Text("指定なし").tag(OpeningHoursFilter.all)
-                        Text("ランチ営業あり").tag(OpeningHoursFilter.lunch)
-                        Text("23時以降も営業").tag(OpeningHoursFilter.after23)
-                        Text("23時以降も食事OK").tag(OpeningHoursFilter.mealAfter23)
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .tint(.brown)
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 12)
-
-                Divider()
-
-                NavigationLink {
-                    PartyFilterView(filters: $filters)
-                } label: {
                     HStack(spacing: 14) {
-                        Image(systemName: "person.2")
+                        Image(systemName: "yensign.circle")
                             .foregroundStyle(.brown)
                             .frame(width: 24)
 
-                        Text("人数・宴会")
+                        Text("予算")
                             .font(.subheadline)
-                            .foregroundStyle(.primary)
 
                         Spacer()
 
-                        Text(
-                            filters.partyCapacity == nil &&
-                            filters.selectedPartyOptions.isEmpty
-                            ? "指定なし" : "指定済み"
-                        )
-                        .font(.subheadline)
-                        .foregroundStyle(.brown)
-
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.brown)
+                        Picker(
+                            "予算",
+                            selection: Binding(
+                                get: { filters.budget ?? "" },
+                                set: { filters.budget = $0.isEmpty ? nil : $0 }
+                            )
+                        ) {
+                            ForEach(budgets, id: \.code) { budget in
+                                Text(budget.name)
+                                    .tag(budget.code)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .tint(.brown)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 12)
-                }
-                .buttonStyle(.plain)
 
-                Divider()
+                    Divider()
 
-                NavigationLink {
-                    PreferenceFilterView(filters: $filters)
-                } label: {
                     HStack(spacing: 14) {
-                        Image(systemName: "slider.horizontal.3")
+                        Image(systemName: "clock")
                             .foregroundStyle(.brown)
                             .frame(width: 24)
 
-                        Text("こだわり条件")
+                        Text("営業時間")
                             .font(.subheadline)
-                            .foregroundStyle(.primary)
 
                         Spacer()
 
-                        Text(
-                            filters.selectedPreferences.isEmpty
-                            ? "指定なし" : "指定済み"
-                        )
-                        .font(.subheadline)
-                        .foregroundStyle(.brown)
-
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.brown)
+                        Picker("営業時間", selection: $filters.openingHours) {
+                            Text("指定なし").tag(OpeningHoursFilter.all)
+                            Text("ランチ営業あり").tag(OpeningHoursFilter.lunch)
+                            Text("23時以降も営業").tag(OpeningHoursFilter.after23)
+                            Text("23時以降も食事OK").tag(OpeningHoursFilter.mealAfter23)
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .tint(.brown)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 12)
-                }
-                .buttonStyle(.plain)
 
-                Divider()
-            }
+                    Divider()
+
+                    NavigationLink {
+                        PartyFilterView(filters: $filters)
+                    } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: "person.2")
+                                .foregroundStyle(.brown)
+                                .frame(width: 24)
+
+                            Text("人数・宴会")
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+
+                            Spacer()
+
+                            Text(
+                                filters.partyCapacity == nil &&
+                                filters.selectedPartyOptions.isEmpty
+                                ? "指定なし" : "指定済み"
+                            )
+                            .font(.subheadline)
+                            .foregroundStyle(.brown)
+
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.brown)
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider()
+
+                    NavigationLink {
+                        PreferenceFilterView(filters: $filters)
+                    } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: "slider.horizontal.3")
+                                .foregroundStyle(.brown)
+                                .frame(width: 24)
+
+                            Text("こだわり条件")
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+
+                            Spacer()
+
+                            Text(
+                                filters.selectedPreferences.isEmpty
+                                ? "指定なし" : "指定済み"
+                            )
+                            .font(.subheadline)
+                            .foregroundStyle(.brown)
+
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.brown)
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider()
+                }
             }
 
 
@@ -366,13 +453,47 @@ struct SearchFilterView: View {
                 return
             }
 
-            let coordinate = station.placemark.coordinate
+            let coordinate = station.location.coordinate
 
             filters.location = .station(
                 name: station.name ?? name,
                 latitude: coordinate.latitude,
                 longitude: coordinate.longitude
             )
+        } catch {
+            stationSearchError = true
+        }
+    }
+
+    @MainActor
+    private func selectStation(_ completion: MKLocalSearchCompletion) async {
+
+        isSearchingStation = true
+        defer { isSearchingStation = false }
+
+        let request = MKLocalSearch.Request(completion: completion)
+
+        do {
+            let response = try await MKLocalSearch(request: request).start()
+
+            guard let station = response.mapItems.first else {
+                stationSearchError = true
+                return
+            }
+
+            let coordinate = station.location.coordinate
+            let name = station.name ?? completion.title
+
+            stationName = name
+
+            filters.location = .station(
+                name: name,
+                latitude: coordinate.latitude,
+                longitude: coordinate.longitude
+            )
+
+            stationSuggestions.clear()
+
         } catch {
             stationSearchError = true
         }

@@ -20,6 +20,7 @@ struct SearchFilters {
     var selectedPartyOptions: Set<PartyOption> = []
     var selectedPreferences: Set<PreferenceOption> = []
     var location: SearchLocation = .unspecified
+    var restaurantName: String = ""
 }
 
 enum PartyOption: String, Hashable {

@@ -22,19 +22,37 @@ struct RestaurantDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
 
-                AsyncImage(
-                    url: URL(string: restaurant.photo.mobile.l)
-                ) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
-                    Image(systemName: "fork.knife")
-                        .foregroundStyle(.brown)
+                GeometryReader { geometry in
+                    AsyncImage(
+                        url: URL(string: restaurant.photo.mobile.l)
+                    ) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(
+                                width: geometry.size.width,
+                                height: 230
+                            )
+                            .clipped()
+                    } placeholder: {
+                        Image(systemName: "fork.knife")
+                            .foregroundStyle(.brown)
+                            .frame(
+                                width: geometry.size.width,
+                                height: 230
+                            )
+                    }
                 }
                 .frame(height: 230)
-                .frame(maxWidth: .infinity)
-                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(
+                            RestaurantGenreColor.color(for: restaurant.genre.code),
+                            lineWidth: 4
+                        )
+                }
+                .padding(.horizontal, 16)
 
                 VStack(alignment: .leading, spacing: 16) {
 

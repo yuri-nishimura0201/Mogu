@@ -12,7 +12,8 @@ struct HotPepperAPIService {
         partyCapacity: Int? = nil,
         partyOptions: Set<PartyOption> = [],
         preferences: Set<PreferenceOption> = [],
-        start: Int = 1
+        start: Int = 1,
+        name: String? = nil
     ) async throws -> [Restaurant] {
 
         var components = URLComponents(
@@ -28,6 +29,15 @@ struct HotPepperAPIService {
             URLQueryItem(name: "start", value: String(start)),
             URLQueryItem(name: "format", value: "json")
         ]
+        let searchName = name?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ) ?? ""
+
+        if !searchName.isEmpty {
+            components.queryItems?.append(
+                URLQueryItem(name: "name", value: searchName)
+            )
+        }
 
         for genre in genres.sorted() {
             components.queryItems?.append(

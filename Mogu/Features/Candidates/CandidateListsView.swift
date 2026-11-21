@@ -7,6 +7,7 @@ struct CandidateListsView: View {
 
     @State private var showAddAlert = false
     @State private var newListName = ""
+    @State private var listToDelete: UUID?
 
     var body: some View {
         NavigationStack {
@@ -20,21 +21,34 @@ struct CandidateListsView: View {
                 } else {
                     List {
                         ForEach(candidateStore.lists) { list in
-                            NavigationLink {
-                                CandidateListDetailView(listID: list.id)
-                            } label: {
-                                HStack {
-                                    Image(systemName: "list.bullet")
-                                        .foregroundStyle(.brown)
+                            HStack(spacing: 4) {
 
-                                    Text(list.name)
+                                NavigationLink {
+                                    CandidateListDetailView(listID: list.id)
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "list.bullet")
+                                            .foregroundStyle(.brown)
 
-                                    Spacer()
+                                        Text(list.name)
 
-                                    Text("\(list.restaurants.count)店舗")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        Spacer()
+
+                                        Text("\(list.restaurants.count)店舗")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
+
+                                Button {
+                                    listToDelete = list.id
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .foregroundStyle(.red)
+                                        .frame(width: 44, height: 44)
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("\(list.name)を削除")
                             }
                         }
                         .onDelete(perform: deleteLists)
@@ -71,14 +85,33 @@ struct CandidateListsView: View {
             } message: {
                 Text("リストの名前を入力してください")
             }
+            .confirmationDialog(
+                "候補リストを削除しますか？",
+                isPresented: Binding(
+                    get: { listToDelete != nil },
+                    set: {
+                        if !$0 {
+                            listToDelete = nil
+                        }
+                    }
+                ),
+                titleVisibility: .visible,
+                presenting: listToDelete
+            ) { id in
+                Button("削除", role: .destructive) {
+                    candidateStore.deleteList(id: id)
+                }
+
+                Button("キャンセル", role: .cancel) {}
+            } message: { _ in
+                Text("削除した候補リストは元に戻せません。")
+            }
         }
     }
 
     private func deleteLists(at offsets: IndexSet) {
-        for index in offsets {
-            let list = candidateStore.lists[index]
-            candidateStore.deleteList(id: list.id)
-        }
+        guard let index = offsets.first else { return }
+        listToDelete = candidateStore.lists[index].id
     }
 }
 

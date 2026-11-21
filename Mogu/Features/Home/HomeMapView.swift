@@ -34,6 +34,7 @@ struct HomeMapView: View {
                         )
                     ) {
                         Button {
+                            focusOnRestaurant(restaurant)
                             selectedRestaurant = restaurant
                         } label: {
                             Image(systemName: "mappin.circle.fill")
@@ -91,20 +92,20 @@ struct HomeMapView: View {
                         showSearchButton = false
                         return
                     }
-
-                    highlightedRestaurantID = nil
                 }
 
                 showSearchButton = true
             }
 
-            .onChange(of: showSearchFilter) { oldValue, newValue in
-                guard oldValue == true, newValue == false else { return }
-                applySearchLocation()
-            }
-
             .onAppear {
-                applySearchLocation()
+                if let selectedID = highlightedRestaurantID,
+                   let restaurant = restaurants.first(where: {
+                       $0.id == selectedID
+                   }) {
+                    focusOnRestaurant(restaurant)
+                } else {
+                    applySearchLocation()
+                }
             }
 
 
@@ -116,6 +117,8 @@ struct HomeMapView: View {
                 if case .station = filters.location {
                     return
                 }
+
+                guard highlightedRestaurantID == nil else { return }
 
                 cameraPosition = .region(
                     MKCoordinateRegion(
@@ -156,7 +159,6 @@ struct HomeMapView: View {
                         .padding(.vertical, 10)
                         .background(.regularMaterial, in: Capsule())
                 }
-                .padding(.top, 16)
             }
             VStack {
                 Spacer()
@@ -212,6 +214,8 @@ struct HomeMapView: View {
             }
         }
 
+        .toolbar(.hidden, for: .navigationBar)
+
         .overlay(alignment: .topLeading) {
             genreLegend
         }
@@ -228,7 +232,6 @@ struct HomeMapView: View {
             }
             .buttonStyle(.plain)
             .padding(.trailing, 16)
-            .padding(.top, 12)
         }
 
         .sheet(item: $candidateRestaurant) { restaurant in
@@ -281,7 +284,6 @@ struct HomeMapView: View {
             }
         }
         .padding(.leading, 16)
-        .padding(.top, 12)
     }
 
     private let genreLegendItems: [(code: String, name: String)] = [

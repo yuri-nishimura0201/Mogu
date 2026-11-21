@@ -37,7 +37,7 @@ struct PartyFilterView: View {
                                 .tag(capacity.1)
                         }
                     }
-                    .tint(.brown)
+                    .tint(.moguInk)
                 }
 
                 Section("設備・サービス") {
@@ -57,7 +57,7 @@ struct PartyFilterView: View {
                                 }
                             )
                         )
-                        .tint(.brown)
+                        .tint(.moguInk)
                     }
                 }
             }
@@ -71,7 +71,7 @@ struct PartyFilterView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(
-                        .brown,
+                        Color.moguFill,
                         in: RoundedRectangle(cornerRadius: 14)
                     )
             }

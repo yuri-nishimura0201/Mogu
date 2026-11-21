@@ -28,7 +28,7 @@ struct CandidateListsView: View {
                                 } label: {
                                     HStack {
                                         Image(systemName: "list.bullet")
-                                            .foregroundStyle(.brown)
+                                            .foregroundStyle(Color.moguInk)
 
                                         Text(list.name)
 
@@ -64,7 +64,7 @@ struct CandidateListsView: View {
                         showAddAlert = true
                     } label: {
                         Image(systemName: "plus")
-                            .foregroundStyle(.brown)
+                            .foregroundStyle(Color.moguInk)
                     }
                 }
             }

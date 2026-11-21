@@ -1,6 +1,14 @@
 import Foundation
 
 struct HotPepperAPIService {
+    static var apiKey: String? {
+        guard let key = Bundle.main.object(forInfoDictionaryKey: "HOTPEPPER_API_KEY") as? String,
+              !key.isEmpty, !key.contains("$(") else {
+            return nil
+        }
+        return key
+    }
+
     func fetchRestaurants(
         latitude: Double,
         longitude: Double,

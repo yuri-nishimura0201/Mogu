@@ -42,7 +42,7 @@ struct RandomRestaurantView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(.brown, in: RoundedRectangle(cornerRadius: 14))
+                    .background(Color.moguFill, in: RoundedRectangle(cornerRadius: 14))
             }
 
             Button {
@@ -50,11 +50,11 @@ struct RandomRestaurantView: View {
             } label: {
                 Label("もう一度選ぶ", systemImage: "shuffle")
                     .font(.headline)
-                    .foregroundStyle(.brown)
+                    .foregroundStyle(Color.moguInk)
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(
-                        Color.brown.opacity(0.1),
+                        Color.moguInk.opacity(0.1),
                         in: RoundedRectangle(cornerRadius: 14)
                     )
             }
@@ -64,12 +64,12 @@ struct RandomRestaurantView: View {
             } label: {
                 Label("前に戻る", systemImage: "arrow.left")
                     .font(.headline)
-                    .foregroundStyle(.brown)
+                    .foregroundStyle(Color.moguInk)
                     .frame(maxWidth: .infinity)
                     .padding()
                     .overlay {
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.brown, lineWidth: 1)
+                            .stroke(Color.moguInk, lineWidth: 1)
                     }
             }
 

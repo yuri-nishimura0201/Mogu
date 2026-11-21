@@ -6,14 +6,19 @@ class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     private let locationManager = CLLocationManager()
 
+    @Published private(set) var permissionResolved = false
     @Published var coordinate: CLLocationCoordinate2D?
+
+    @Published private(set) var locationUnavailable = false
 
     override init() {
         super.init()
+        permissionResolved = locationManager.authorizationStatus != .notDetermined
         locationManager.delegate = self
     }
 
     func requestLocation() {
+        locationUnavailable = false
         switch locationManager.authorizationStatus {
         case .notDetermined:
             locationManager.requestWhenInUseAuthorization()
@@ -22,14 +27,17 @@ class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
             locationManager.requestLocation()
 
         default:
-            break
+            locationUnavailable = true
         }
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        permissionResolved = manager.authorizationStatus != .notDetermined
         if manager.authorizationStatus == .authorizedWhenInUse ||
            manager.authorizationStatus == .authorizedAlways {
             manager.requestLocation()
+        } else if manager.authorizationStatus == .denied || manager.authorizationStatus == .restricted {
+            locationUnavailable = true
         }
     }
 
@@ -38,6 +46,7 @@ class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
         didUpdateLocations locations: [CLLocation]
     ) {
         guard let location = locations.last else { return }
+        locationUnavailable = false
         coordinate = location.coordinate
     }
 
@@ -45,6 +54,6 @@ class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
         _ manager: CLLocationManager,
         didFailWithError error: Error
     ) {
-        print("位置情報取得エラー: \(error.localizedDescription)")
+        locationUnavailable = true
     }
 }

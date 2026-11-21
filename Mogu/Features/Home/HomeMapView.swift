@@ -6,6 +6,9 @@ import Combine
 
 
 struct HomeMapView: View {
+    @ObservedObject var tutorial = MoguTutorial()
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var candidateRestaurant: Restaurant?
     @EnvironmentObject private var favoritesStore: FavoritesStore
     @StateObject private var locationService = LocationService()
     @State private var cameraPosition: MapCameraPosition = .automatic
@@ -13,7 +16,9 @@ struct HomeMapView: View {
     @State private var showSearchButton = false
     @State private var showGenreLegend = false
     @State private var selectedRestaurant: Restaurant?
-    @State private var candidateRestaurant: Restaurant?
+    @State private var searchIssue: SearchIssue?
+    @State private var lastSearchCenter: CLLocationCoordinate2D?
+    @State private var latestSearchID: UUID?
     @State private var isListExpanded = false
     @State private var highlightedRestaurantID: String?
     @Binding var filters: SearchFilters
@@ -21,7 +26,77 @@ struct HomeMapView: View {
     @Binding var restaurants: [Restaurant]
     @Binding var currentCoordinate: CLLocationCoordinate2D?
 
+    private var tutorialFavoriteID: String? {
+        guard tutorial.step == .favorite else { return nil }
+        return restaurants.first { !favoritesStore.isFavorite($0.id) }?.id
+    }
+
+    private var showsExpandedList: Bool {
+        switch tutorial.step {
+        case .favorite, .candidate, .selecting: true
+        default: isListExpanded
+        }
+    }
+
     var body: some View {
+        MapReader { map in
+            mapContent
+                .overlayPreferenceValue(TutorialBounds.self) { anchors in
+                    if let step = tutorial.step, scenePhase == .active,
+                       [.palette, .legend, .pin, .filter, .favorite, .candidate].contains(step) {
+                        GeometryReader { geometry in
+                            TutorialSpotlight(step: step, target: spotlightRect(step, anchors, geometry, map),
+                                              arrowTarget: step == .legend ? anchors[.palette]?.first.map { geometry[$0] } : nil,
+                                              finish: tutorial.finish) {
+                                switch step {
+                                case .pin: tutorial.advance(from: .pin, to: .filter)
+                                case .favorite: tutorial.advance(from: .favorite, to: .candidate)
+                                case .candidate: tutorial.advance(from: .candidate, to: .random)
+                                default: break
+                                }
+                            }
+                        }
+                    }
+                }
+        }
+        .onChange(of: locationService.permissionResolved && scenePhase == .active, initial: true) { _, ready in
+            if ready { tutorial.startIfNeeded() }
+        }
+        .onChange(of: tutorial.step) { _, step in
+            if step == nil { showGenreLegend = false }
+        }
+    }
+
+    private func spotlightRect(_ step: TutorialStep, _ anchors: TutorialBounds.Value,
+                               _ geometry: GeometryProxy, _ map: MapProxy) -> CGRect? {
+        func frames(_ key: TutorialTarget) -> [CGRect] {
+            (anchors[key] ?? []).map { geometry[$0] }
+        }
+        switch step {
+        case .palette: return frames(.palette).first
+        case .legend: return frames(.legend).first
+        case .filter: return frames(.filter).first
+        case .favorite, .candidate:
+            guard let viewport = frames(.listViewport).first else { return nil }
+            return frames(step == .favorite ? .heart : .candidate).first { viewport.contains($0) }
+        case .pin:
+            // MapKitの座標変換で、上部ボタンと店舗一覧の間に見えるピンを選ぶ。
+            let bottom = frames(.listViewport).first?.minY ?? geometry.size.height
+            let origin = geometry.frame(in: .global).origin
+            for shop in restaurants {
+                let coordinate = CLLocationCoordinate2D(latitude: shop.lat, longitude: shop.lng)
+                guard let point = map.convert(coordinate, to: .global) else { continue }
+                let y = point.y - origin.y - (highlightedRestaurantID == shop.id ? 14 : 0)
+                let rect = CGRect(x: point.x - origin.x - 20, y: y - 20, width: 40, height: 40)
+                if rect.minY > 54, rect.maxY < bottom - 68,
+                   rect.minX >= 0, rect.maxX <= geometry.size.width { return rect }
+            }
+            return nil
+        default: return nil
+        }
+    }
+
+    private var mapContent: some View {
         ZStack(alignment: .top) {
 
             Map(position: $cameraPosition) {
@@ -34,6 +109,7 @@ struct HomeMapView: View {
                         )
                     ) {
                         Button {
+                            tutorial.advance(from: .pin, to: .detail)
                             focusOnRestaurant(restaurant)
                             selectedRestaurant = restaurant
                         } label: {
@@ -172,15 +248,20 @@ struct HomeMapView: View {
                         .padding(.top, 10)
                         .padding(.bottom, 8)
 
-                    restaurantList
+                    ScrollViewReader { scroll in
+                        restaurantList
+                            .onChange(of: tutorialFavoriteID, initial: true) { _, id in
+                                if let id { scroll.scrollTo(id, anchor: .center) }
+                            }
+                    }
                 }
                 .frame(
-                    height: isListExpanded ? 450 : 180,
+                    height: showsExpandedList ? 450 : 180,
                     alignment: .top
                 )
                 .frame(maxWidth: .infinity)
                 .background(
-                    Color(red: 1.0, green: 0.98, blue: 0.96),
+                    Color.moguCanvas,
                     in: UnevenRoundedRectangle(
                         topLeadingRadius: 22,
                         topTrailingRadius: 22
@@ -206,11 +287,26 @@ struct HomeMapView: View {
         .navigationDestination(
             isPresented: Binding(
                 get: { selectedRestaurant != nil },
-                set: { if !$0 { selectedRestaurant = nil } }
+                set: { presented in
+                    if !presented {
+                        selectedRestaurant = nil
+                        tutorial.advance(from: .detail, to: .filter)
+                    }
+                }
             )
         ) {
             if let restaurant = selectedRestaurant {
                 RestaurantDetailView(restaurant: restaurant)
+                    .overlay(alignment: .topLeading) {
+                        if tutorial.step == .detail {
+                            TutorialArrow(pointsDown: false)
+                                .padding(.leading, 20)
+                                .padding(.top, 6)
+                        }
+                    }
+                    .safeAreaInset(edge: .bottom) {
+                        if tutorial.step == .detail { TutorialHint(step: .detail, finish: tutorial.finish) }
+                    }
             }
         }
 
@@ -218,24 +314,47 @@ struct HomeMapView: View {
 
         .overlay(alignment: .topLeading) {
             genreLegend
+                .tutorialTarget(.legend, active: tutorial.step == .legend)
         }
 
         .overlay(alignment: .topTrailing) {
             Button {
+                tutorial.advance(from: .filter, to: .editing)
                 showSearchFilter = true
             } label: {
                 Image(systemName: "slider.horizontal.3")
                     .font(.title3)
-                    .foregroundStyle(.brown)
+                    .foregroundStyle(Color.moguInk)
                     .padding(12)
                     .background(.regularMaterial, in: Circle())
             }
             .buttonStyle(.plain)
+            .tutorialTarget(.filter, active: tutorial.step == .filter)
             .padding(.trailing, 16)
         }
 
-        .sheet(item: $candidateRestaurant) { restaurant in
+        .sheet(item: $candidateRestaurant, onDismiss: {
+            tutorial.advance(from: .selecting, to: .random)
+        }) { restaurant in
             CandidateSelectionView(restaurant: restaurant)
+                .safeAreaInset(edge: .bottom) {
+                    if tutorial.step == .selecting { TutorialHint(step: .selecting, finish: tutorial.finish) }
+                }
+        }
+        .onReceive(locationService.$locationUnavailable) { unavailable in
+            if case .station = filters.location { return }
+            if unavailable && restaurants.isEmpty && !tutorial.isFirstLaunch && tutorial.step == nil {
+                searchIssue = .location
+            }
+        }
+        .alert(item: $searchIssue) { issue in
+            issue.alert {
+                showSearchFilter = true
+            } retry: {
+                if let center = lastSearchCenter {
+                    Task { await loadRestaurants(latitude: center.latitude, longitude: center.longitude) }
+                }
+            }
         }
     }
 
@@ -244,16 +363,19 @@ struct HomeMapView: View {
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     showGenreLegend.toggle()
+                    if showGenreLegend { tutorial.advance(from: .palette, to: .legend) }
+                    else { tutorial.advance(from: .legend, to: .pin) }
                 }
             } label: {
                 Image(systemName: "paintpalette")
                     .font(.title3)
-                    .foregroundStyle(.brown)
+                    .foregroundStyle(Color.moguInk)
                     .frame(width: 44, height: 44)
                     .background(.regularMaterial, in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("ジャンルの色")
+            .tutorialTarget(.palette, active: tutorial.step == .palette || tutorial.step == .legend)
 
             if showGenreLegend {
                 ScrollView {
@@ -275,7 +397,10 @@ struct HomeMapView: View {
                     }
                     .padding(14)
                 }
-                .frame(width: 240, height: 300)
+                .frame(width: 240)
+                .containerRelativeFrame(.vertical) { height, _ in
+                    tutorial.step == .legend ? min(300, height * 0.5) : 300
+                }
                 .background(
                     .regularMaterial,
                     in: RoundedRectangle(cornerRadius: 14)
@@ -321,6 +446,7 @@ struct HomeMapView: View {
                         HStack(spacing: 8) {
                             Button {
                                 focusOnRestaurant(restaurant)
+                                selectedRestaurant = restaurant
                             } label: {
                                 HStack(spacing: 12) {
                                     AsyncImage(
@@ -331,7 +457,7 @@ struct HomeMapView: View {
                                             .scaledToFill()
                                     } placeholder: {
                                         Image(systemName: "fork.knife")
-                                            .foregroundStyle(.brown)
+                                            .foregroundStyle(Color.moguInk)
                                     }
                                     .frame(width: 80, height: 80)
                                     .clipped()
@@ -343,7 +469,7 @@ struct HomeMapView: View {
                                                 lineWidth: 4
                                             )
                                     )
-                                    .padding(.leading, 20)
+                                    .padding(.leading, 12)
 
                                     VStack(alignment: .leading, spacing: 5) {
                                         Text(restaurant.name)
@@ -370,19 +496,22 @@ struct HomeMapView: View {
                             }
                             .buttonStyle(.plain)
 
-                            NavigationLink {
-                                RestaurantDetailView(restaurant: restaurant)
+                            Button {
+                                focusOnRestaurant(restaurant)
                             } label: {
-                                Image(systemName: "info.circle")
+                                Image(systemName: "mappin.circle")
                                     .font(.title3)
-                                    .foregroundStyle(.brown)
-                                    .frame(width: 32, height: 44)
+                                    .foregroundStyle(Color.moguInk)
+                                    .frame(width: 44, height: 44)
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("\(restaurant.name)の詳細を見る")
+                            .accessibilityLabel("\(restaurant.name)を地図で表示")
 
                             Button {
                                 favoritesStore.toggleFavorite(restaurant)
+                                if favoritesStore.isFavorite(restaurant.id) {
+                                    tutorial.advance(from: .favorite, to: .candidate)
+                                }
                             } label: {
                                 Image(
                                     systemName: favoritesStore.isFavorite(restaurant.id)
@@ -394,23 +523,29 @@ struct HomeMapView: View {
                                 .frame(width: 44, height: 44)
                             }
                             .buttonStyle(.plain)
+                            .tutorialTarget(.heart, active: tutorial.step == .favorite && !favoritesStore.isFavorite(restaurant.id))
 
                             Button {
                                 candidateRestaurant = restaurant
+                                tutorial.advance(from: .candidate, to: .selecting)
                             } label: {
                                 Image(systemName: "list.bullet.circle")
                                     .font(.title3)
-                                    .foregroundStyle(.brown)
+                                    .foregroundStyle(Color.moguInk)
                                     .frame(width: 44, height: 44)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("候補リストに追加")
+                            .tutorialTarget(.candidate, active: tutorial.step == .candidate)
                             .padding(.trailing, 12)
                         }
+                        .id(restaurant.id)
 
                         Divider()
                     }
                 }
             }
+            .tutorialTarget(.listViewport, active: tutorial.step != nil)
         }
         .padding(.top, 16)
     }
@@ -476,12 +611,11 @@ struct HomeMapView: View {
         latitude: Double,
         longitude: Double
     ) async {
-        guard let apiKey = Bundle.main.object(
-            forInfoDictionaryKey: "HOTPEPPER_API_KEY"
-        ) as? String,
-              !apiKey.isEmpty,
-              !apiKey.contains("$(") else {
-            print("APIキーを読み込めませんでした")
+        let requestID = UUID()
+        latestSearchID = requestID
+        lastSearchCenter = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        guard let apiKey = HotPepperAPIService.apiKey else {
+            if tutorial.step == nil { searchIssue = .configuration }
             return
         }
 
@@ -513,11 +647,14 @@ struct HomeMapView: View {
             }
 
             await MainActor.run {
+                guard latestSearchID == requestID else { return }
                 restaurants = sortedRestaurants
+                searchIssue = sortedRestaurants.isEmpty && tutorial.step == nil ? .noResults : nil
                 fitMapToRestaurants(sortedRestaurants)
             }
         } catch {
-            print("API通信エラー: \(error)")
+            guard latestSearchID == requestID else { return }
+            if tutorial.step == nil { searchIssue = .connection }
         }
     }
 

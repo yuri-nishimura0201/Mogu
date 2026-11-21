@@ -48,6 +48,12 @@ final class FavoritesStore: ObservableObject {
         saveFavorites()
     }
 
+    func removeAll() {
+        favoriteIDs.removeAll()
+        favoriteRestaurants.removeAll()
+        saveFavorites()
+    }
+
     private func saveFavorites() {
         UserDefaults.standard.set(
             Array(favoriteIDs),

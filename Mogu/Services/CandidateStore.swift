@@ -20,8 +20,8 @@ final class CandidateStore: ObservableObject {
         }
     }
 
-    func addList(name: String) {
-        let list = CandidateList(name: name)
+    func addList(name: String, restaurants: [Restaurant] = []) {
+        let list = CandidateList(name: name, restaurants: restaurants)
         lists.append(list)
         saveLists()
     }
@@ -40,19 +40,17 @@ final class CandidateStore: ObservableObject {
         saveLists()
     }
 
-    @discardableResult
-    func addRestaurant(_ restaurant: Restaurant, to listID: UUID) -> Bool {
+    func addRestaurant(_ restaurant: Restaurant, to listID: UUID) {
         guard let index = lists.firstIndex(where: { $0.id == listID }) else {
-            return false
+            return
         }
 
         guard !lists[index].restaurants.contains(where: { $0.id == restaurant.id }) else {
-            return false
+            return
         }
 
         lists[index].restaurants.append(restaurant)
         saveLists()
-        return true
     }
 
     func removeRestaurant(id: String, from listID: UUID) {
@@ -61,6 +59,11 @@ final class CandidateStore: ObservableObject {
         }
 
         lists[index].restaurants.removeAll { $0.id == id }
+        saveLists()
+    }
+
+    func removeAll() {
+        lists.removeAll()
         saveLists()
     }
 

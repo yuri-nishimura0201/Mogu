@@ -8,6 +8,7 @@ struct CandidateListDetailView: View {
     let listID: UUID
 
     @State private var showRenameAlert = false
+    @State private var randomRestaurant: Restaurant?
     @State private var editedName = ""
 
     private var candidateList: CandidateList? {
@@ -42,6 +43,12 @@ struct CandidateListDetailView: View {
                     )
                 } else {
                     List {
+                        Button {
+                            randomRestaurant = RestaurantRandomizer.pick(from: list.restaurants)
+                        } label: {
+                            Label("このリストから1店選ぶ", systemImage: "shuffle")
+                        }
+
                         ForEach(list.restaurants) { restaurant in
                             NavigationLink {
                                 RestaurantDetailView(restaurant: restaurant)
@@ -53,7 +60,7 @@ struct CandidateListDetailView: View {
                                         image.resizable().scaledToFill()
                                     } placeholder: {
                                         Image(systemName: "fork.knife")
-                                            .foregroundStyle(.brown)
+                                            .foregroundStyle(Color.moguInk)
                                     }
                                     .frame(width: 70, height: 70)
                                     .clipped()
@@ -93,6 +100,18 @@ struct CandidateListDetailView: View {
                 )
             }
         }
+        .navigationDestination(isPresented: Binding(
+            get: { randomRestaurant != nil },
+            set: { if !$0 { randomRestaurant = nil } }
+        )) {
+            if let restaurant = randomRestaurant, let list = candidateList {
+                RandomRestaurantView(restaurant: restaurant) {
+                    randomRestaurant = RestaurantRandomizer.pick(
+                        from: list.restaurants, excluding: restaurant.id
+                    )
+                }
+            }
+        }
         .navigationTitle(candidateList?.name ?? "候補リスト")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -101,13 +120,13 @@ struct CandidateListDetailView: View {
                     showRenameAlert = true
                 } label: {
                     Image(systemName: "pencil")
-                        .foregroundStyle(.brown)
+                        .foregroundStyle(Color.moguInk)
                 }
                 .disabled(candidateList == nil)
 
                 ShareLink(item: shareText) {
                     Image(systemName: "square.and.arrow.up")
-                        .foregroundStyle(.brown)
+                        .foregroundStyle(Color.moguInk)
                 }
                 .disabled(candidateList?.restaurants.isEmpty ?? true)
             }

@@ -9,6 +9,7 @@ enum SearchSource {
 
 struct SearchFilterView: View {
 
+    @ObservedObject var tutorial = MoguTutorial()
     @Binding var filters: SearchFilters
     @Binding var showSearchFilter: Bool
     var source: SearchSource = .home
@@ -31,7 +32,7 @@ struct SearchFilterView: View {
                     filters = SearchFilters()
                 }
                 .font(.caption)
-                .foregroundStyle(.brown)
+                .foregroundStyle(Color.moguInk)
             }
             .padding()
 
@@ -42,7 +43,7 @@ struct SearchFilterView: View {
 
                     HStack(spacing: 14) {
                         Image(systemName: "location")
-                            .foregroundStyle(.brown)
+                            .foregroundStyle(Color.moguInk)
                             .frame(width: 24)
 
                         Text("エリア・場所")
@@ -77,7 +78,7 @@ struct SearchFilterView: View {
                         }
                         .labelsHidden()
                         .pickerStyle(.menu)
-                        .tint(.brown)
+                        .tint(.moguInk)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 12)
@@ -86,7 +87,7 @@ struct SearchFilterView: View {
 
                     HStack(spacing: 14) {
                         Image(systemName: "ruler")
-                            .foregroundStyle(.brown)
+                            .foregroundStyle(Color.moguInk)
                             .frame(width: 24)
 
                         Text("検索範囲")
@@ -102,7 +103,7 @@ struct SearchFilterView: View {
                         }
                         .labelsHidden()
                         .pickerStyle(.menu)
-                        .tint(.brown)
+                        .tint(.moguInk)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 12)
@@ -111,7 +112,7 @@ struct SearchFilterView: View {
 
                         HStack(spacing: 12) {
                             Image(systemName: "tram.fill")
-                                .foregroundStyle(.brown)
+                                .foregroundStyle(Color.moguInk)
                                 .frame(width: 24)
 
                             TextField("駅名を入力（例：新宿駅）", text: $stationName)
@@ -159,7 +160,7 @@ struct SearchFilterView: View {
                                     } label: {
                                         HStack(spacing: 10) {
                                             Image(systemName: "tram.fill")
-                                                .foregroundStyle(.brown)
+                                                .foregroundStyle(Color.moguInk)
 
                                             VStack(alignment: .leading, spacing: 3) {
                                                 Text(item.element.title)
@@ -198,7 +199,7 @@ struct SearchFilterView: View {
 
                         HStack(spacing: 12) {
                             Image(systemName: "magnifyingglass")
-                                .foregroundStyle(.brown)
+                                .foregroundStyle(Color.moguInk)
                                 .frame(width: 24)
 
                             TextField(
@@ -215,7 +216,7 @@ struct SearchFilterView: View {
                     if case .station(let name, _, _) = filters.location {
                         Text("選択中：\(name)")
                             .font(.caption)
-                            .foregroundStyle(.brown)
+                            .foregroundStyle(Color.moguInk)
                             .padding(.horizontal)
                             .padding(.bottom, 12)
                     }
@@ -226,7 +227,7 @@ struct SearchFilterView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Label("ジャンル", systemImage: "fork.knife")
                             .font(.subheadline)
-                            .foregroundStyle(.brown)
+                            .foregroundStyle(Color.moguInk)
                             .padding(.horizontal)
 
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -245,12 +246,12 @@ struct SearchFilterView: View {
                                         Text(genre.name)
                                             .font(.subheadline)
                                             .foregroundStyle(
-                                                isSelected(genre.code) ? Color.white : Color.brown
+                                                isSelected(genre.code) ? Color.white : Color.moguInk
                                             )
                                             .padding(.horizontal, 16)
                                             .padding(.vertical, 10)
                                             .background(
-                                                isSelected(genre.code) ? Color.brown : Color.white,
+                                                isSelected(genre.code) ? Color.moguFill : Color(.secondarySystemGroupedBackground),
                                                 in: Capsule()
                                             )
 
@@ -267,7 +268,7 @@ struct SearchFilterView: View {
 
                     HStack(spacing: 14) {
                         Image(systemName: "yensign.circle")
-                            .foregroundStyle(.brown)
+                            .foregroundStyle(Color.moguInk)
                             .frame(width: 24)
 
                         Text("予算")
@@ -289,7 +290,7 @@ struct SearchFilterView: View {
                         }
                         .labelsHidden()
                         .pickerStyle(.menu)
-                        .tint(.brown)
+                        .tint(.moguInk)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 12)
@@ -298,7 +299,7 @@ struct SearchFilterView: View {
 
                     HStack(spacing: 14) {
                         Image(systemName: "clock")
-                            .foregroundStyle(.brown)
+                            .foregroundStyle(Color.moguInk)
                             .frame(width: 24)
 
                         Text("営業時間")
@@ -314,7 +315,7 @@ struct SearchFilterView: View {
                         }
                         .labelsHidden()
                         .pickerStyle(.menu)
-                        .tint(.brown)
+                        .tint(.moguInk)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 12)
@@ -326,7 +327,7 @@ struct SearchFilterView: View {
                     } label: {
                         HStack(spacing: 14) {
                             Image(systemName: "person.2")
-                                .foregroundStyle(.brown)
+                                .foregroundStyle(Color.moguInk)
                                 .frame(width: 24)
 
                             Text("人数・宴会")
@@ -341,11 +342,11 @@ struct SearchFilterView: View {
                                 ? "指定なし" : "指定済み"
                             )
                             .font(.subheadline)
-                            .foregroundStyle(.brown)
+                            .foregroundStyle(Color.moguInk)
 
                             Image(systemName: "chevron.right")
                                 .font(.caption)
-                                .foregroundStyle(.brown)
+                                .foregroundStyle(Color.moguInk)
                         }
                         .padding(.horizontal)
                         .padding(.vertical, 12)
@@ -359,7 +360,7 @@ struct SearchFilterView: View {
                     } label: {
                         HStack(spacing: 14) {
                             Image(systemName: "slider.horizontal.3")
-                                .foregroundStyle(.brown)
+                                .foregroundStyle(Color.moguInk)
                                 .frame(width: 24)
 
                             Text("こだわり条件")
@@ -373,11 +374,11 @@ struct SearchFilterView: View {
                                 ? "指定なし" : "指定済み"
                             )
                             .font(.subheadline)
-                            .foregroundStyle(.brown)
+                            .foregroundStyle(Color.moguInk)
 
                             Image(systemName: "chevron.right")
                                 .font(.caption)
-                                .foregroundStyle(.brown)
+                                .foregroundStyle(Color.moguInk)
                         }
                         .padding(.horizontal)
                         .padding(.vertical, 12)
@@ -391,6 +392,7 @@ struct SearchFilterView: View {
 
             HStack(spacing: 12) {
                 Button {
+                    tutorial.advance(from: .editing, to: .favorite)
                     showSearchFilter = false
                 } label: {
                     Label(
@@ -403,9 +405,15 @@ struct SearchFilterView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(
-                        .brown,
+                        Color.moguFill,
                         in: RoundedRectangle(cornerRadius: 14)
                     )
+                }
+
+                .overlay(alignment: .top) {
+                    if tutorial.step == .editing {
+                        TutorialArrow(pointsDown: true).offset(y: -40)
+                    }
                 }
 
                 if let onRandom {
@@ -413,20 +421,33 @@ struct SearchFilterView: View {
                         Label("ランダム", systemImage: "shuffle")
                             .font(.subheadline)
                             .bold()
-                            .foregroundStyle(.brown)
+                            .foregroundStyle(Color.moguInk)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(
-                                Color.white,
+                                Color(.secondarySystemGroupedBackground),
                                 in: RoundedRectangle(cornerRadius: 14)
                             )
                     }
+                    .disabled(tutorial.step == .editing)
+                    .tutorialTarget(.random, active: tutorial.step == .random)
                 }
             }
             .buttonStyle(.plain)
             .padding()
         }
-        .background(Color(red: 1.0, green: 0.98, blue: 0.96))
+        .background(Color.moguCanvas)
+        .safeAreaInset(edge: .top) {
+            if tutorial.step == .editing { TutorialHint(step: .editing, finish: tutorial.finish) }
+        }
+        .overlayPreferenceValue(TutorialBounds.self) { anchors in
+            if tutorial.step == .random {
+                GeometryReader { geometry in
+                    TutorialSpotlight(step: .random, target: anchors[.random]?.first.map { geometry[$0] },
+                                      finish: tutorial.finish)
+                }
+            }
+        }
         .alert("駅が見つかりませんでした", isPresented: $stationSearchError) {
             Button("OK", role: .cancel) {}
         } message: {

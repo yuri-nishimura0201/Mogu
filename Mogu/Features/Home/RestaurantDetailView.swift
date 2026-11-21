@@ -10,13 +10,12 @@ import SwiftUI
 
 struct RestaurantDetailView: View {
 
-    @EnvironmentObject private var candidateStore: CandidateStore
     @EnvironmentObject private var favoritesStore: FavoritesStore
 
     let restaurant: Restaurant
 
     @State private var showSafari = false
-    @State private var candidateMessage: String?
+    @State private var showCandidateSelection = false
 
     var body: some View {
         ScrollView {
@@ -36,7 +35,7 @@ struct RestaurantDetailView: View {
                             .clipped()
                     } placeholder: {
                         Image(systemName: "fork.knife")
-                            .foregroundStyle(.brown)
+                            .foregroundStyle(Color.moguInk)
                             .frame(
                                 width: geometry.size.width,
                                 height: 230
@@ -112,7 +111,7 @@ struct RestaurantDetailView: View {
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(
-                                .brown,
+                                Color.moguFill,
                                 in: RoundedRectangle(cornerRadius: 12)
                             )
                         }
@@ -136,27 +135,13 @@ struct RestaurantDetailView: View {
                         .foregroundStyle(.red)
                     }
 
-                    Menu {
-                        if candidateStore.lists.isEmpty {
-                            Button("候補リストを作成してください") {}
-                                .disabled(true)
-                        } else {
-                            ForEach(candidateStore.lists) { list in
-                                Button(list.name) {
-                                    let wasAdded = candidateStore.addRestaurant(
-                                        restaurant,
-                                        to: list.id
-                                    )
-                                    candidateMessage = wasAdded
-                                        ? "「\(list.name)」に追加しました"
-                                        : "「\(list.name)」には追加済みです"
-                                }
-                            }
-                        }
+                    Button {
+                        showCandidateSelection = true
                     } label: {
                         Image(systemName: "list.bullet")
-                            .foregroundStyle(.brown)
+                            .foregroundStyle(Color.moguInk)
                     }
+                    .accessibilityLabel("候補リストに追加")
                 }
             }
         }
@@ -167,16 +152,8 @@ struct RestaurantDetailView: View {
                     .ignoresSafeArea()
             }
         }
-        .alert(
-            "候補リスト",
-            isPresented: Binding(
-                get: { candidateMessage != nil },
-                set: { if !$0 { candidateMessage = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(candidateMessage ?? "")
+        .sheet(isPresented: $showCandidateSelection) {
+            CandidateSelectionView(restaurant: restaurant)
         }
     }
 }

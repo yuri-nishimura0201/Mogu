@@ -7,10 +7,25 @@ struct FavoritesView: View {
     @State private var filters = SearchFilters()
     @State private var showSearchFilter = false
     @State private var randomRestaurant: Restaurant?
-    @State private var showNoResultsAlert = false
     @State private var candidateRestaurant: Restaurant?
+    @State private var searchIssue: SearchIssue?
+    @State private var isPicking = false
+    @State private var drawCandidates: [Restaurant] = []
     @StateObject private var locationService = LocationService()
     @State private var matchedFavoriteIDs: Set<String>?
+
+    private struct ListSearchKey: Equatable {
+        let favoriteIDs: Set<String>
+        let hasLocation: Bool
+        let locationUnavailable: Bool
+    }
+
+    private var listSearchKey: ListSearchKey? {
+        guard !showSearchFilter else { return nil }
+        return ListSearchKey(favoriteIDs: favoritesStore.favoriteIDs,
+                             hasLocation: locationService.coordinate != nil,
+                             locationUnavailable: locationService.locationUnavailable)
+    }
 
     private var requiresAPISearch: Bool {
         switch filters.openingHours {
@@ -47,21 +62,19 @@ struct FavoritesView: View {
         return distance <= radius
     }
 
-    private func searchFavoriteRestaurants() async {
+    private func matchingIDs() async throws -> Set<String>? {
         guard requiresAPISearch else {
-            matchedFavoriteIDs = nil
-            return
+            return nil
         }
 
-        guard let apiKey else { return }
+        guard let apiKey = HotPepperAPIService.apiKey else { throw SearchIssue.configuration }
 
         let favoriteIDs = Set(
             favoritesStore.favoriteRestaurants.map(\.id)
         )
 
         guard !favoriteIDs.isEmpty else {
-            matchedFavoriteIDs = []
-            return
+            return []
         }
 
         let coordinate: CLLocationCoordinate2D
@@ -74,50 +87,44 @@ struct FavoritesView: View {
             )
         case .currentLocation, .unspecified:
             guard let current = locationService.coordinate else {
-                print("現在地を取得できませんでした")
-                return
+                throw SearchIssue.location
             }
             coordinate = current
         }
 
-        do {
-            var allResults: [Restaurant] = []
-            var start = 1
+        var matchedIDs: Set<String> = []
+        var start = 1
 
-            repeat {
-                let results = try await HotPepperAPIService().fetchRestaurants(
-                    latitude: coordinate.latitude,
-                    longitude: coordinate.longitude,
-                    apiKey: apiKey,
-                    range: filters.range == 0 ? 5 : filters.range,
-                    genres: filters.selectedGenres,
-                    budget: filters.budget,
-                    openingHours: filters.openingHours,
-                    partyCapacity: filters.partyCapacity,
-                    partyOptions: filters.selectedPartyOptions,
-                    preferences: filters.selectedPreferences,
-                    start: start
-                )
-
-                allResults.append(contentsOf: results)
-                start += results.count
-
-                if results.count < 40 {
-                    break
-                }
-            } while start <= 1000
-
-            matchedFavoriteIDs = Set(
-                allResults.map(\.id).filter { favoriteIDs.contains($0) }
+        repeat {
+            let results = try await HotPepperAPIService().fetchRestaurants(
+                latitude: coordinate.latitude,
+                longitude: coordinate.longitude,
+                apiKey: apiKey,
+                range: filters.range == 0 ? 5 : filters.range,
+                genres: filters.selectedGenres,
+                budget: filters.budget,
+                openingHours: filters.openingHours,
+                partyCapacity: filters.partyCapacity,
+                partyOptions: filters.selectedPartyOptions,
+                preferences: filters.selectedPreferences,
+                start: start
             )
 
-        } catch {
-            print("お気に入り検索エラー: \(error)")
-        }
+            for restaurant in results where favoriteIDs.contains(restaurant.id) {
+                matchedIDs.insert(restaurant.id)
+            }
+            start += results.count
+
+            if results.count < 40 {
+                break
+            }
+        } while start <= 1000
+
+        return matchedIDs
     }
 
 
-    private var filteredRestaurants: [Restaurant] {
+    private func matchingFavorites(ids: Set<String>?) -> [Restaurant] {
         favoritesStore.favoriteRestaurants.filter { restaurant in
 
             let matchesGenre =
@@ -169,24 +176,43 @@ struct FavoritesView: View {
 
             }
             let matchesAPI =
-                matchedFavoriteIDs?.contains(restaurant.id) ?? true
+                ids?.contains(restaurant.id) ?? true
 
             return matchesGenre && matchesBudget && matchesDistance && matchesAPI
         }
     }
 
-    private var apiKey: String? {
-        guard let key = Bundle.main.object(
-            forInfoDictionaryKey: "HOTPEPPER_API_KEY"
-        ) as? String,
-        !key.isEmpty,
-        !key.contains("$(") else {
-            return nil
-        }
-
-        return key
+    private var filteredRestaurants: [Restaurant] {
+        matchingFavorites(ids: matchedFavoriteIDs)
     }
 
+    private func updateResults(forDraw: Bool) async {
+        if forDraw {
+            guard !isPicking else { return }
+            isPicking = true
+        }
+        defer { if forDraw { isPicking = false } }
+        do {
+            if case .currentLocation = filters.location, filters.range > 0,
+               locationService.coordinate == nil { throw SearchIssue.location }
+            let ids = try await matchingIDs()
+            try Task.checkCancellation()
+            if forDraw {
+                drawCandidates = matchingFavorites(ids: ids)
+                guard let pick = RestaurantRandomizer.pick(from: drawCandidates) else {
+                    searchIssue = .noResults
+                    return
+                }
+                randomRestaurant = pick
+            } else {
+                matchedFavoriteIDs = ids
+            }
+        } catch {
+            guard !Task.isCancelled else { return }
+            if !forDraw { matchedFavoriteIDs = [] }
+            searchIssue = (error as? SearchIssue) ?? .connection
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -197,15 +223,11 @@ struct FavoritesView: View {
                         showSearchFilter: $showSearchFilter,
                         source: .favorites,
                         onRandom: {
-                            if let restaurant = RestaurantRandomizer.pick(
-                                from: filteredRestaurants
-                            ) {
-                                randomRestaurant = restaurant
-                            } else {
-                                showNoResultsAlert = true
-                            }
+                            Task { await updateResults(forDraw: true) }
                         }
                     )
+                    .disabled(isPicking)
+                    .overlay { if isPicking { ProgressView("候補を確認中") } }
                 } else {
                     if favoritesStore.favoriteRestaurants.isEmpty {
                         ContentUnavailableView(
@@ -235,7 +257,7 @@ struct FavoritesView: View {
                                                     .scaledToFill()
                                             } placeholder: {
                                                 Image(systemName: "fork.knife")
-                                                    .foregroundStyle(.brown)
+                                                    .foregroundStyle(Color.moguInk)
                                             }
                                             .frame(width: 80, height: 80)
                                             .clipped()
@@ -273,11 +295,14 @@ struct FavoritesView: View {
                                         candidateRestaurant = restaurant
                                     } label: {
                                         Image(systemName: "list.bullet.circle")
-                                            .font(.system(size: 24))
-                                            .foregroundColor(.brown)
+                                            .font(.title3)
+                                            .foregroundStyle(Color.moguInk)
                                             .frame(width: 44, height: 44)
                                     }
                                     .buttonStyle(.plain)
+                                    .accessibilityLabel("候補リストに追加")
+
+
                                 }
                             }
                         }
@@ -292,7 +317,7 @@ struct FavoritesView: View {
                             showSearchFilter = true
                         } label: {
                             Image(systemName: "magnifyingglass")
-                                .foregroundStyle(.brown)
+                                .foregroundStyle(Color.moguInk)
                         }
                     }
                 }
@@ -309,7 +334,7 @@ struct FavoritesView: View {
                         restaurant: restaurant,
                         onRetry: {
                             randomRestaurant = RestaurantRandomizer.pick(
-                                from: filteredRestaurants,
+                                from: drawCandidates,
                                 excluding: randomRestaurant?.id
                             )
                         }
@@ -318,13 +343,13 @@ struct FavoritesView: View {
                 }
             }
         }
-        .task(id: showSearchFilter) {
+        .task(id: listSearchKey) {
             guard !showSearchFilter else { return }
-            await searchFavoriteRestaurants()
-        }
-        .task(id: favoritesStore.favoriteIDs) {
-            guard !showSearchFilter else { return }
-            await searchFavoriteRestaurants()
+            if case .station = filters.location {
+                await updateResults(forDraw: false)
+            } else if !requiresAPISearch || locationService.coordinate != nil || locationService.locationUnavailable {
+                await updateResults(forDraw: false)
+            }
         }
 
         .onAppear {
@@ -334,11 +359,12 @@ struct FavoritesView: View {
         .sheet(item: $candidateRestaurant) { restaurant in
             CandidateSelectionView(restaurant: restaurant)
         }
-
-        .alert("該当する店舗がありません", isPresented: $showNoResultsAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("絞り込み条件を変更して、もう一度お試しください。")
+        .alert(item: $searchIssue) { issue in
+            issue.alert {
+                showSearchFilter = true
+            } retry: {
+                Task { await updateResults(forDraw: showSearchFilter) }
+            }
         }
     }
 }

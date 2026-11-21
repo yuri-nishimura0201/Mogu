@@ -52,7 +52,7 @@ struct PreferenceFilterView: View {
                                     }
                                 )
                             )
-                            .tint(.brown)
+                            .tint(.moguInk)
                         }
                     }
                 }
@@ -66,7 +66,7 @@ struct PreferenceFilterView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(.brown, in: RoundedRectangle(cornerRadius: 14))
+                    .background(Color.moguFill, in: RoundedRectangle(cornerRadius: 14))
             }
             .padding()
         }

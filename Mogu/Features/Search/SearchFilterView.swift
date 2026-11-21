@@ -96,9 +96,9 @@ struct SearchFilterView: View {
                         Spacer()
 
                         Picker("検索範囲", selection: $filters.range) {
-                            ForEach(searchRanges, id: \.value) { range in
-                                Text(range.name)
-                                    .tag(range.value)
+                            ForEach(SearchRange.allCases, id: \.self) { range in
+                                Text(range.title)
+                                    .tag(range)
                             }
                         }
                         .labelsHidden()
@@ -232,31 +232,9 @@ struct SearchFilterView: View {
 
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 10) {
-                                ForEach(genres, id: \.code) { genre in
-                                    Button {
-                                        if genre.code.isEmpty {
-                                            filters.selectedGenres.removeAll()
-                                        } else if filters.selectedGenres.contains(genre.code) {
-                                            filters.selectedGenres.remove(genre.code)
-                                        } else {
-                                            filters.selectedGenres.insert(genre.code)
-                                        }
-                                    } label: {
-
-                                        Text(genre.name)
-                                            .font(.subheadline)
-                                            .foregroundStyle(
-                                                isSelected(genre.code) ? Color.white : Color.moguInk
-                                            )
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 10)
-                                            .background(
-                                                isSelected(genre.code) ? Color.moguFill : Color(.secondarySystemGroupedBackground),
-                                                in: Capsule()
-                                            )
-
-                                    }
-                                    .buttonStyle(.plain)
+                                genreButton("すべて", code: "")
+                                ForEach(Genre.all) { genre in
+                                    genreButton(genre.japaneseName, code: genre.code)
                                 }
                             }
                             .padding(.horizontal)
@@ -521,22 +499,26 @@ struct SearchFilterView: View {
     }
 
 
-    private func isSelected(_ code: String) -> Bool {
-        if code.isEmpty {
-            return filters.selectedGenres.isEmpty
+    private func genreButton(_ title: String, code: String) -> some View {
+        let selected = code.isEmpty ? filters.selectedGenres.isEmpty : filters.selectedGenres.contains(code)
+        return Button {
+            if code.isEmpty {
+                filters.selectedGenres.removeAll()
+            } else if selected {
+                filters.selectedGenres.remove(code)
+            } else {
+                filters.selectedGenres.insert(code)
+            }
+        } label: {
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(selected ? Color.white : Color.moguInk)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(selected ? Color.moguFill : Color(.secondarySystemGroupedBackground), in: Capsule())
         }
-
-        return filters.selectedGenres.contains(code)
+        .buttonStyle(.plain)
     }
-
-    private let searchRanges: [(name: String, value: Int)] = [
-        ("指定なし", 0),
-        ("300m以内", 1),
-        ("500m以内", 2),
-        ("1km以内", 3),
-        ("2km以内", 4),
-        ("3km以内", 5)
-    ]
 
     private let budgets: [(name: String, code: String)] = [
         ("指定なし", ""),
@@ -554,29 +536,6 @@ struct SearchFilterView: View {
         ("20001～30000円", "B013"),
         ("30001円～", "B014")
     ]
-
-
-    private let genres: [(name: String, code: String)] = [
-        ("すべて", ""),
-        ("居酒屋", "G001"),
-        ("ダイニングバー・バル", "G002"),
-        ("創作料理", "G003"),
-        ("和食", "G004"),
-        ("洋食", "G005"),
-        ("イタリアン・フレンチ", "G006"),
-        ("中華", "G007"),
-        ("焼肉・ホルモン", "G008"),
-        ("アジア・エスニック料理", "G009"),
-        ("各国料理", "G010"),
-        ("カラオケ・パーティ", "G011"),
-        ("バー・カクテル", "G012"),
-        ("ラーメン", "G013"),
-        ("カフェ・スイーツ", "G014"),
-        ("その他グルメ", "G015"),
-        ("お好み焼き・もんじゃ", "G016"),
-        ("韓国料理", "G017")
-    ]
-
 }
 
 #Preview {

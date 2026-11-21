@@ -47,7 +47,7 @@ struct RestaurantDetailView: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 12)
                         .strokeBorder(
-                            RestaurantGenreColor.color(for: restaurant.genre.code),
+                            Genre.color(for: restaurant.genre.code),
                             lineWidth: 4
                         )
                 }

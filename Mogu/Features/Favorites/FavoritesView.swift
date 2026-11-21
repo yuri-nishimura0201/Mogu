@@ -38,36 +38,12 @@ struct FavoritesView: View {
         }
     }
 
-    private func isWithinRange(
-        restaurant: Restaurant,
-        latitude: Double,
-        longitude: Double,
-        radius: Double
-    ) -> Bool {
-
-        let searchLocation = CLLocation(
-            latitude: latitude,
-            longitude: longitude
-        )
-
-        let restaurantLocation = CLLocation(
-            latitude: restaurant.lat,
-            longitude: restaurant.lng
-        )
-
-        let distance = searchLocation.distance(
-            from: restaurantLocation
-        )
-
-        return distance <= radius
-    }
-
     private func matchingIDs() async throws -> Set<String>? {
         guard requiresAPISearch else {
             return nil
         }
 
-        guard let apiKey = HotPepperAPIService.apiKey else { throw SearchIssue.configuration }
+        let service = try HotPepperAPIService()
 
         let favoriteIDs = Set(
             favoritesStore.favoriteRestaurants.map(\.id)
@@ -92,21 +68,16 @@ struct FavoritesView: View {
             coordinate = current
         }
 
+        // お気に入りの検索画面には店舗名の入力欄がない。
+        var favoriteFilters = filters
+        favoriteFilters.restaurantName = ""
+
         var matchedIDs: Set<String> = []
         var start = 1
-
         repeat {
-            let results = try await HotPepperAPIService().fetchRestaurants(
-                latitude: coordinate.latitude,
-                longitude: coordinate.longitude,
-                apiKey: apiKey,
-                range: filters.range == 0 ? 5 : filters.range,
-                genres: filters.selectedGenres,
-                budget: filters.budget,
-                openingHours: filters.openingHours,
-                partyCapacity: filters.partyCapacity,
-                partyOptions: filters.selectedPartyOptions,
-                preferences: filters.selectedPreferences,
+            let results = try await service.fetchRestaurants(
+                filters: favoriteFilters,
+                coordinate: coordinate,
                 start: start
             )
 
@@ -115,7 +86,7 @@ struct FavoritesView: View {
             }
             start += results.count
 
-            if results.count < 40 {
+            if results.count < HotPepperAPIService.pageSize {
                 break
             }
         } while start <= 1000
@@ -123,6 +94,23 @@ struct FavoritesView: View {
         return matchedIDs
     }
 
+    private func matchesSearchRange(_ restaurant: Restaurant) -> Bool {
+        guard let meters = filters.range.meters else { return true }
+        let coordinate: CLLocationCoordinate2D
+        switch filters.location {
+        case .unspecified:
+            return true
+        case .station(_, let latitude, let longitude):
+            coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        case .currentLocation:
+            guard let current = locationService.coordinate else { return false }
+            coordinate = current
+        }
+
+        let center = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        let location = CLLocation(latitude: restaurant.lat, longitude: restaurant.lng)
+        return center.distance(from: location) <= Double(meters)
+    }
 
     private func matchingFavorites(ids: Set<String>?) -> [Restaurant] {
         favoritesStore.favoriteRestaurants.filter { restaurant in
@@ -137,44 +125,7 @@ struct FavoritesView: View {
                 filters.budget == nil ||
                 restaurant.budget.code == filters.budget
 
-            let matchesDistance: Bool
-
-            switch filters.location {
-            case .station(_, let latitude, let longitude):
-
-                let radius = Double(
-                    [0, 300, 500, 1000, 2000, 3000][filters.range]
-                )
-
-                matchesDistance = filters.range == 0 ||
-                    isWithinRange(
-                        restaurant: restaurant,
-                        latitude: latitude,
-                        longitude: longitude,
-                        radius: radius
-                    )
-
-            case .currentLocation:
-                if filters.range == 0 {
-                    matchesDistance = true
-                } else if let coordinate = locationService.coordinate {
-                    let distances = [0, 300, 500, 1000, 2000, 3000]
-                    let radius = Double(distances[filters.range])
-
-                    matchesDistance = isWithinRange(
-                        restaurant: restaurant,
-                        latitude: coordinate.latitude,
-                        longitude: coordinate.longitude,
-                        radius: radius
-                    )
-                } else {
-                    matchesDistance = false
-                }
-
-            case .unspecified:
-                matchesDistance = true
-
-            }
+            let matchesDistance = matchesSearchRange(restaurant)
             let matchesAPI =
                 ids?.contains(restaurant.id) ?? true
 
@@ -193,7 +144,7 @@ struct FavoritesView: View {
         }
         defer { if forDraw { isPicking = false } }
         do {
-            if case .currentLocation = filters.location, filters.range > 0,
+            if case .currentLocation = filters.location, filters.range != .unspecified,
                locationService.coordinate == nil { throw SearchIssue.location }
             let ids = try await matchingIDs()
             try Task.checkCancellation()
@@ -248,36 +199,7 @@ struct FavoritesView: View {
                                     NavigationLink {
                                         RestaurantDetailView(restaurant: restaurant)
                                     } label: {
-                                        HStack(spacing: 12) {
-                                            AsyncImage(
-                                                url: URL(string: restaurant.photo.mobile.s)
-                                            ) { image in
-                                                image
-                                                    .resizable()
-                                                    .scaledToFill()
-                                            } placeholder: {
-                                                Image(systemName: "fork.knife")
-                                                    .foregroundStyle(Color.moguInk)
-                                            }
-                                            .frame(width: 80, height: 80)
-                                            .clipped()
-                                            .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                                            VStack(alignment: .leading, spacing: 5) {
-                                                Text(restaurant.name)
-                                                    .font(.subheadline)
-                                                    .bold()
-                                                    .lineLimit(2)
-
-                                                Text(restaurant.genre.name)
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-
-                                                Text(restaurant.budget.name)
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                            }
-                                        }
+                                        RestaurantRow(restaurant: restaurant, style: .favorites)
                                     }
                                     .buttonStyle(.plain)
 

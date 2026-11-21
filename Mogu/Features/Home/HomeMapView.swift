@@ -19,7 +19,15 @@ struct HomeMapView: View {
     @State private var searchIssue: SearchIssue?
     @State private var lastSearchCenter: CLLocationCoordinate2D?
     @State private var latestSearchID: UUID?
-    @State private var isListExpanded = false
+    private enum MapDestination {
+        case detail(Restaurant)
+        case search
+    }
+    private static let compactList = PresentationDetent.height(180)
+    private static let expandedList = PresentationDetent.height(450)
+    @State private var showsList = false
+    @State private var listHeight = compactList
+    @State private var nextDestination: MapDestination?
     @State private var highlightedRestaurantID: String?
     @Binding var filters: SearchFilters
     @Binding var showSearchFilter: Bool
@@ -31,11 +39,8 @@ struct HomeMapView: View {
         return restaurants.first { !favoritesStore.isFavorite($0.id) }?.id
     }
 
-    private var showsExpandedList: Bool {
-        switch tutorial.step {
-        case .favorite, .candidate, .selecting: true
-        default: isListExpanded
-        }
+    private var isListTutorial: Bool {
+        tutorial.step == .favorite || tutorial.step == .candidate || tutorial.step == .selecting
     }
 
     var body: some View {
@@ -43,17 +48,12 @@ struct HomeMapView: View {
             mapContent
                 .overlayPreferenceValue(TutorialBounds.self) { anchors in
                     if let step = tutorial.step, scenePhase == .active,
-                       [.palette, .legend, .pin, .filter, .favorite, .candidate].contains(step) {
+                       [.palette, .legend, .pin, .filter].contains(step) {
                         GeometryReader { geometry in
                             TutorialSpotlight(step: step, target: spotlightRect(step, anchors, geometry, map),
                                               arrowTarget: step == .legend ? anchors[.palette]?.first.map { geometry[$0] } : nil,
                                               finish: tutorial.finish) {
-                                switch step {
-                                case .pin: tutorial.advance(from: .pin, to: .filter)
-                                case .favorite: tutorial.advance(from: .favorite, to: .candidate)
-                                case .candidate: tutorial.advance(from: .candidate, to: .random)
-                                default: break
-                                }
+                                tutorial.advance(from: .pin, to: .filter)
                             }
                         }
                     }
@@ -64,6 +64,12 @@ struct HomeMapView: View {
         }
         .onChange(of: tutorial.step) { _, step in
             if step == nil { showGenreLegend = false }
+            if step == .favorite || step == .candidate {
+                listHeight = Self.expandedList
+                showsList = true
+            } else if step == .palette {
+                showsList = false
+            }
         }
     }
 
@@ -76,19 +82,15 @@ struct HomeMapView: View {
         case .palette: return frames(.palette).first
         case .legend: return frames(.legend).first
         case .filter: return frames(.filter).first
-        case .favorite, .candidate:
-            guard let viewport = frames(.listViewport).first else { return nil }
-            return frames(step == .favorite ? .heart : .candidate).first { viewport.contains($0) }
         case .pin:
-            // MapKitの座標変換で、上部ボタンと店舗一覧の間に見えるピンを選ぶ。
-            let bottom = frames(.listViewport).first?.minY ?? geometry.size.height
+            // ピンの案内中は一覧シートを閉じ、画面内のピンを選ぶ。
             let origin = geometry.frame(in: .global).origin
             for shop in restaurants {
                 let coordinate = CLLocationCoordinate2D(latitude: shop.lat, longitude: shop.lng)
                 guard let point = map.convert(coordinate, to: .global) else { continue }
                 let y = point.y - origin.y - (highlightedRestaurantID == shop.id ? 14 : 0)
                 let rect = CGRect(x: point.x - origin.x - 20, y: y - 20, width: 40, height: 40)
-                if rect.minY > 54, rect.maxY < bottom - 68,
+                if rect.minY > 54, rect.maxY < geometry.size.height,
                    rect.minX >= 0, rect.maxX <= geometry.size.width { return rect }
             }
             return nil
@@ -110,13 +112,12 @@ struct HomeMapView: View {
                     ) {
                         Button {
                             tutorial.advance(from: .pin, to: .detail)
-                            focusOnRestaurant(restaurant)
-                            selectedRestaurant = restaurant
+                            open(.detail(restaurant))
                         } label: {
                             Image(systemName: "mappin.circle.fill")
                                 .font(.system(size: 34))
                                 .foregroundStyle(
-                                    RestaurantGenreColor.color(for: restaurant.genre.code)
+                                    Genre.color(for: restaurant.genre.code)
                                 )
                                 .background(
                                     Circle()
@@ -174,6 +175,12 @@ struct HomeMapView: View {
             }
 
             .onAppear {
+                if isListTutorial {
+                    listHeight = Self.expandedList
+                    showsList = true
+                } else if tutorial.step == nil && !tutorial.isFirstLaunch && searchIssue == nil {
+                    showsList = true
+                }
                 if let selectedID = highlightedRestaurantID,
                    let restaurant = restaurants.first(where: {
                        $0.id == selectedID
@@ -236,51 +243,6 @@ struct HomeMapView: View {
                         .background(.regularMaterial, in: Capsule())
                 }
             }
-            VStack {
-                Spacer()
-
-                VStack(spacing: 0) {
-
-                    // ドラッグ用のつまみ
-                    Capsule()
-                        .fill(Color.gray.opacity(0.4))
-                        .frame(width: 40, height: 5)
-                        .padding(.top, 10)
-                        .padding(.bottom, 8)
-
-                    ScrollViewReader { scroll in
-                        restaurantList
-                            .onChange(of: tutorialFavoriteID, initial: true) { _, id in
-                                if let id { scroll.scrollTo(id, anchor: .center) }
-                            }
-                    }
-                }
-                .frame(
-                    height: showsExpandedList ? 450 : 180,
-                    alignment: .top
-                )
-                .frame(maxWidth: .infinity)
-                .background(
-                    Color.moguCanvas,
-                    in: UnevenRoundedRectangle(
-                        topLeadingRadius: 22,
-                        topTrailingRadius: 22
-                    )
-                )
-                .shadow(color: .black.opacity(0.12), radius: 8, y: -3)
-                .gesture(
-                    DragGesture()
-                        .onEnded { value in
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                if value.translation.height < -50 {
-                                    isListExpanded = true
-                                } else if value.translation.height > 50 {
-                                    isListExpanded = false
-                                }
-                            }
-                        }
-                )
-            }
 
         }
 
@@ -320,7 +282,7 @@ struct HomeMapView: View {
         .overlay(alignment: .topTrailing) {
             Button {
                 tutorial.advance(from: .filter, to: .editing)
-                showSearchFilter = true
+                open(.search)
             } label: {
                 Image(systemName: "slider.horizontal.3")
                     .font(.title3)
@@ -333,13 +295,27 @@ struct HomeMapView: View {
             .padding(.trailing, 16)
         }
 
-        .sheet(item: $candidateRestaurant, onDismiss: {
-            tutorial.advance(from: .selecting, to: .random)
-        }) { restaurant in
-            CandidateSelectionView(restaurant: restaurant)
-                .safeAreaInset(edge: .bottom) {
-                    if tutorial.step == .selecting { TutorialHint(step: .selecting, finish: tutorial.finish) }
+        .overlay(alignment: .bottom) {
+            if !showsList && tutorial.step == nil {
+                Button {
+                    listHeight = Self.compactList
+                    showsList = true
+                } label: {
+                    Label("近くのお店 \(restaurants.count)件", systemImage: "list.bullet")
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 44)
+                        .background(.regularMaterial, in: Capsule())
                 }
+                .padding(.bottom, 8)
+            }
+        }
+        .sheet(isPresented: $showsList, onDismiss: {
+            if let destination = nextDestination {
+                nextDestination = nil
+                navigate(to: destination)
+            }
+        }) {
+            listSheet
         }
         .onReceive(locationService.$locationUnavailable) { unavailable in
             if case .station = filters.location { return }
@@ -347,14 +323,41 @@ struct HomeMapView: View {
                 searchIssue = .location
             }
         }
-        .alert(item: $searchIssue) { issue in
-            issue.alert {
-                showSearchFilter = true
-            } retry: {
-                if let center = lastSearchCenter {
-                    Task { await loadRestaurants(latitude: center.latitude, longitude: center.longitude) }
-                }
+        .alert(item: issueBinding(inList: false), content: searchAlert)
+    }
+
+    // 一覧表示中は最前面のシートからアラートを出す。
+    private func issueBinding(inList: Bool) -> Binding<SearchIssue?> {
+        Binding(get: { showsList == inList ? searchIssue : nil },
+                set: { if showsList == inList { searchIssue = $0 } })
+    }
+
+    private func searchAlert(_ issue: SearchIssue) -> Alert {
+        issue.alert {
+            open(.search)
+        } retry: {
+            if let center = lastSearchCenter {
+                Task { await loadRestaurants(latitude: center.latitude, longitude: center.longitude) }
             }
+        }
+    }
+
+    private func open(_ destination: MapDestination) {
+        if showsList {
+            nextDestination = destination
+            showsList = false
+        } else {
+            navigate(to: destination)
+        }
+    }
+
+    private func navigate(to destination: MapDestination) {
+        switch destination {
+        case .detail(let restaurant):
+            focusOnRestaurant(restaurant)
+            selectedRestaurant = restaurant
+        case .search:
+            showSearchFilter = true
         }
     }
 
@@ -380,17 +383,13 @@ struct HomeMapView: View {
             if showGenreLegend {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        ForEach(genreLegendItems.indices, id: \.self) { index in
+                        ForEach(Genre.all) { genre in
                             HStack(spacing: 10) {
                                 Circle()
-                                    .fill(
-                                        RestaurantGenreColor.color(
-                                            for: genreLegendItems[index].code
-                                        )
-                                    )
+                                    .fill(genre.color)
                                     .frame(width: 16, height: 16)
 
-                                Text(genreLegendItems[index].name)
+                                Text(genre.japaneseName)
                                     .font(.caption)
                             }
                         }
@@ -411,143 +410,126 @@ struct HomeMapView: View {
         .padding(.leading, 16)
     }
 
-    private let genreLegendItems: [(code: String, name: String)] = [
-        ("G001", "居酒屋"),
-        ("G002", "ダイニングバー・バル"),
-        ("G003", "創作料理"),
-        ("G004", "和食"),
-        ("G005", "洋食"),
-        ("G006", "イタリアン・フレンチ"),
-        ("G007", "中華"),
-        ("G008", "焼肉・ホルモン"),
-        ("G009", "アジア・エスニック料理"),
-        ("G010", "各国料理"),
-        ("G011", "カラオケ・パーティ"),
-        ("G012", "バー・カクテル"),
-        ("G013", "ラーメン"),
-        ("G014", "カフェ・スイーツ"),
-        ("G015", "その他グルメ"),
-        ("G016", "お好み焼き・もんじゃ"),
-        ("G017", "韓国料理")
-    ]
+    private var listSheet: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text("近くのお店 \(restaurants.count)件")
+                    .font(.headline)
+                Spacer()
+                if !isListTutorial {
+                    Button {
+                        showsList = false
+                    } label: {
+                        Image(systemName: "xmark")
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("店舗一覧を閉じる")
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 14)
 
-
-
-    private var restaurantList: some View {
-        VStack(alignment: .leading, spacing: 12) {
-
-            Text("近くのお店 \(restaurants.count)件")
-                .font(.headline)
-                .padding(.horizontal)
-
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(restaurants) { restaurant in
-                        HStack(spacing: 8) {
-                            Button {
-                                focusOnRestaurant(restaurant)
-                                selectedRestaurant = restaurant
-                            } label: {
-                                HStack(spacing: 12) {
-                                    AsyncImage(
-                                        url: URL(string: restaurant.photo.mobile.s)
-                                    ) { image in
-                                        image
-                                            .resizable()
-                                            .scaledToFill()
-                                    } placeholder: {
-                                        Image(systemName: "fork.knife")
-                                            .foregroundStyle(Color.moguInk)
-                                    }
-                                    .frame(width: 80, height: 80)
-                                    .clipped()
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .strokeBorder(
-                                                RestaurantGenreColor.color(for: restaurant.genre.code),
-                                                lineWidth: 4
-                                            )
-                                    )
-                                    .padding(.leading, 12)
-
-                                    VStack(alignment: .leading, spacing: 5) {
-                                        Text(restaurant.name)
-                                            .font(.subheadline)
-                                            .bold()
-                                            .lineLimit(2)
-
-                                        Text(restaurant.genre.name)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-
-                                        Text("予算目安：\(restaurant.budget.name)")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-
-                                        Text(restaurant.open)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(2)
-                                    }
-
-                                    Spacer()
-                                }
-                            }
-                            .buttonStyle(.plain)
-
-                            Button {
-                                focusOnRestaurant(restaurant)
-                            } label: {
-                                Image(systemName: "mappin.circle")
-                                    .font(.title3)
-                                    .foregroundStyle(Color.moguInk)
-                                    .frame(width: 44, height: 44)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("\(restaurant.name)を地図で表示")
-
-                            Button {
-                                favoritesStore.toggleFavorite(restaurant)
-                                if favoritesStore.isFavorite(restaurant.id) {
-                                    tutorial.advance(from: .favorite, to: .candidate)
-                                }
-                            } label: {
-                                Image(
-                                    systemName: favoritesStore.isFavorite(restaurant.id)
-                                        ? "heart.fill"
-                                        : "heart"
-                                )
-                                .font(.title3)
-                                .foregroundStyle(.red)
-                                .frame(width: 44, height: 44)
-                            }
-                            .buttonStyle(.plain)
-                            .tutorialTarget(.heart, active: tutorial.step == .favorite && !favoritesStore.isFavorite(restaurant.id))
-
-                            Button {
-                                candidateRestaurant = restaurant
-                                tutorial.advance(from: .candidate, to: .selecting)
-                            } label: {
-                                Image(systemName: "list.bullet.circle")
-                                    .font(.title3)
-                                    .foregroundStyle(Color.moguInk)
-                                    .frame(width: 44, height: 44)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("候補リストに追加")
-                            .tutorialTarget(.candidate, active: tutorial.step == .candidate)
-                            .padding(.trailing, 12)
-                        }
-                        .id(restaurant.id)
-
-                        Divider()
+            ScrollViewReader { scroll in
+                restaurantList
+                    .onChange(of: tutorialFavoriteID, initial: true) { _, id in
+                        if let id { scroll.scrollTo(id, anchor: .center) }
+                    }
+            }
+        }
+        .overlayPreferenceValue(TutorialBounds.self) { anchors in
+            if let step = tutorial.step, step == .favorite || step == .candidate {
+                GeometryReader { geometry in
+                    let viewport = anchors[.listViewport]?.first.map { geometry[$0] }
+                    let buttons = anchors[step == .favorite ? .heart : .candidate] ?? []
+                    let target = buttons.map { geometry[$0] }.first { viewport?.contains($0) == true }
+                    TutorialSpotlight(step: step, target: target, finish: tutorial.finish) {
+                        if step == .favorite { tutorial.advance(from: .favorite, to: .candidate) }
+                        else { tutorial.advance(from: .candidate, to: .random) }
                     }
                 }
             }
-            .tutorialTarget(.listViewport, active: tutorial.step != nil)
         }
-        .padding(.top, 16)
+        .presentationDetents(isListTutorial ? [Self.expandedList] : [Self.compactList, Self.expandedList],
+                             selection: $listHeight)
+        .presentationDragIndicator(isListTutorial ? .hidden : .visible)
+        .presentationContentInteraction(.scrolls)
+        .presentationBackgroundInteraction(isListTutorial ? .disabled : .enabled)
+        .presentationBackground(Color.moguCanvas)
+        .interactiveDismissDisabled(isListTutorial)
+        .tint(.moguInk)
+        .alert(item: issueBinding(inList: true), content: searchAlert)
+        .sheet(item: $candidateRestaurant, onDismiss: {
+            tutorial.advance(from: .selecting, to: .random)
+        }) { restaurant in
+            CandidateSelectionView(restaurant: restaurant)
+                .safeAreaInset(edge: .bottom) {
+                    if tutorial.step == .selecting { TutorialHint(step: .selecting, finish: tutorial.finish) }
+                }
+        }
+    }
+
+    private var restaurantList: some View {
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                ForEach(restaurants) { restaurant in
+                    HStack(spacing: 8) {
+                        Button {
+                            open(.detail(restaurant))
+                        } label: {
+                            RestaurantRow(restaurant: restaurant, style: .home)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            focusOnRestaurant(restaurant)
+                        } label: {
+                            Image(systemName: "mappin.circle")
+                                .font(.title3)
+                                .foregroundStyle(Color.moguInk)
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(restaurant.name)を地図で表示")
+
+                        Button {
+                            favoritesStore.toggleFavorite(restaurant)
+                            if favoritesStore.isFavorite(restaurant.id) {
+                                tutorial.advance(from: .favorite, to: .candidate)
+                            }
+                        } label: {
+                            Image(
+                                systemName: favoritesStore.isFavorite(restaurant.id)
+                                    ? "heart.fill"
+                                    : "heart"
+                            )
+                            .font(.title3)
+                            .foregroundStyle(.red)
+                            .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .tutorialTarget(.heart, active: tutorial.step == .favorite && !favoritesStore.isFavorite(restaurant.id))
+
+                        Button {
+                            candidateRestaurant = restaurant
+                            tutorial.advance(from: .candidate, to: .selecting)
+                        } label: {
+                            Image(systemName: "list.bullet.circle")
+                                .font(.title3)
+                                .foregroundStyle(Color.moguInk)
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("候補リストに追加")
+                        .tutorialTarget(.candidate, active: tutorial.step == .candidate)
+                        .padding(.trailing, 12)
+                    }
+                    .id(restaurant.id)
+
+                    Divider()
+                }
+            }
+        }
+        .tutorialTarget(.listViewport, active: tutorial.step != nil)
     }
 
     private func focusOnRestaurant(_ restaurant: Restaurant) {
@@ -559,7 +541,7 @@ struct HomeMapView: View {
 
         withAnimation(.spring(response: 0.4, dampingFraction: 0.65)) {
             highlightedRestaurantID = restaurant.id
-            isListExpanded = false
+            if !isListTutorial { listHeight = Self.compactList }
         }
 
         withAnimation(.easeInOut(duration: 0.5)) {
@@ -613,26 +595,11 @@ struct HomeMapView: View {
     ) async {
         let requestID = UUID()
         latestSearchID = requestID
-        lastSearchCenter = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-        guard let apiKey = HotPepperAPIService.apiKey else {
-            if tutorial.step == nil { searchIssue = .configuration }
-            return
-        }
+        let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        lastSearchCenter = coordinate
 
         do {
-            let result = try await HotPepperAPIService().fetchRestaurants(
-                latitude: latitude,
-                longitude: longitude,
-                apiKey: apiKey,
-                range: filters.range == 0 ? 5 : filters.range,
-                genres: filters.selectedGenres,
-                budget: filters.budget,
-                openingHours: filters.openingHours,
-                partyCapacity: filters.partyCapacity,
-                partyOptions: filters.selectedPartyOptions,
-                preferences: filters.selectedPreferences,
-                name: filters.restaurantName
-            )
+            let result = try await HotPepperAPIService().fetchRestaurants(filters: filters, coordinate: coordinate)
 
             let searchLocation = CLLocation(
                 latitude: latitude,
@@ -654,7 +621,7 @@ struct HomeMapView: View {
             }
         } catch {
             guard latestSearchID == requestID else { return }
-            if tutorial.step == nil { searchIssue = .connection }
+            if tutorial.step == nil { searchIssue = (error as? SearchIssue) ?? .connection }
         }
     }
 

@@ -13,7 +13,7 @@ enum OpeningHoursFilter {
 
 struct SearchFilters {
     var selectedGenres: Set<String> = []
-    var range: Int = 0
+    var range: SearchRange = .unspecified
     var budget: String?
     var openingHours: OpeningHoursFilter = .all
     var partyCapacity: Int?

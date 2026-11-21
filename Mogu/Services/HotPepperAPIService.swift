@@ -1,27 +1,22 @@
 import Foundation
+import CoreLocation
 
 struct HotPepperAPIService {
-    static var apiKey: String? {
+    static let pageSize = 40
+    private let apiKey: String
+
+    init() throws {
         guard let key = Bundle.main.object(forInfoDictionaryKey: "HOTPEPPER_API_KEY") as? String,
               !key.isEmpty, !key.contains("$(") else {
-            return nil
+            throw SearchIssue.configuration
         }
-        return key
+        apiKey = key
     }
 
     func fetchRestaurants(
-        latitude: Double,
-        longitude: Double,
-        apiKey: String,
-        range: Int = 3,
-        genres: Set<String> = [],
-        budget: String? = nil,
-        openingHours: OpeningHoursFilter = .all,
-        partyCapacity: Int? = nil,
-        partyOptions: Set<PartyOption> = [],
-        preferences: Set<PreferenceOption> = [],
-        start: Int = 1,
-        name: String? = nil
+        filters: SearchFilters,
+        coordinate: CLLocationCoordinate2D,
+        start: Int = 1
     ) async throws -> [Restaurant] {
 
         var components = URLComponents(
@@ -30,16 +25,14 @@ struct HotPepperAPIService {
 
         components.queryItems = [
             URLQueryItem(name: "key", value: apiKey),
-            URLQueryItem(name: "lat", value: String(latitude)),
-            URLQueryItem(name: "lng", value: String(longitude)),
-            URLQueryItem(name: "range", value: String(range)),
-            URLQueryItem(name: "count", value: "40"),
+            URLQueryItem(name: "lat", value: String(coordinate.latitude)),
+            URLQueryItem(name: "lng", value: String(coordinate.longitude)),
+            URLQueryItem(name: "range", value: String(filters.range.apiCode)),
+            URLQueryItem(name: "count", value: String(Self.pageSize)),
             URLQueryItem(name: "start", value: String(start)),
             URLQueryItem(name: "format", value: "json")
         ]
-        let searchName = name?.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        ) ?? ""
+        let searchName = filters.restaurantName.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if !searchName.isEmpty {
             components.queryItems?.append(
@@ -47,19 +40,19 @@ struct HotPepperAPIService {
             )
         }
 
-        for genre in genres.sorted() {
+        for genre in filters.selectedGenres.sorted() {
             components.queryItems?.append(
                 URLQueryItem(name: "genre", value: genre)
             )
         }
 
-        if let budget = budget {
+        if let budget = filters.budget {
             components.queryItems?.append(
                 URLQueryItem(name: "budget", value: budget)
             )
         }
 
-        switch openingHours {
+        switch filters.openingHours {
         case .all:
             break
 
@@ -79,19 +72,19 @@ struct HotPepperAPIService {
             )
         }
 
-        if let partyCapacity = partyCapacity {
+        if let partyCapacity = filters.partyCapacity {
             components.queryItems?.append(
                 URLQueryItem(name: "party_capacity", value: String(partyCapacity))
             )
         }
 
-        for option in partyOptions.sorted(by: { $0.rawValue < $1.rawValue }) {
+        for option in filters.selectedPartyOptions.sorted(by: { $0.rawValue < $1.rawValue }) {
             components.queryItems?.append(
                 URLQueryItem(name: option.rawValue, value: "1")
             )
         }
 
-        for preference in preferences.sorted(by: { $0.rawValue < $1.rawValue }) {
+        for preference in filters.selectedPreferences.sorted(by: { $0.rawValue < $1.rawValue }) {
             components.queryItems?.append(
                 URLQueryItem(name: preference.rawValue, value: "1")
             )

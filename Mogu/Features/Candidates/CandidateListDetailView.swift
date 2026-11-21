@@ -53,33 +53,7 @@ struct CandidateListDetailView: View {
                             NavigationLink {
                                 RestaurantDetailView(restaurant: restaurant)
                             } label: {
-                                HStack(spacing: 12) {
-                                    AsyncImage(
-                                        url: URL(string: restaurant.photo.mobile.s)
-                                    ) { image in
-                                        image.resizable().scaledToFill()
-                                    } placeholder: {
-                                        Image(systemName: "fork.knife")
-                                            .foregroundStyle(Color.moguInk)
-                                    }
-                                    .frame(width: 70, height: 70)
-                                    .clipped()
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                                    VStack(alignment: .leading, spacing: 5) {
-                                        Text(restaurant.name)
-                                            .font(.subheadline)
-                                            .bold()
-
-                                        Text(restaurant.genre.name)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-
-                                        Text(restaurant.budget.name)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
+                                RestaurantRow(restaurant: restaurant, style: .candidateList)
                             }
                         }
                         .onDelete { offsets in

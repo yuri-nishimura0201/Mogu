@@ -148,11 +148,11 @@ struct RootTabView: View {
         isRandomLoading = true
         defer { isRandomLoading = false }
 
-        let coordinate: (latitude: Double, longitude: Double)
+        let coordinate: CLLocationCoordinate2D
 
         switch filters.location {
         case .station(_, let latitude, let longitude):
-            coordinate = (latitude, longitude)
+            coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
 
         case .currentLocation, .unspecified:
             guard let currentCoordinate else {
@@ -160,31 +160,11 @@ struct RootTabView: View {
                 return
             }
 
-            coordinate = (
-                currentCoordinate.latitude,
-                currentCoordinate.longitude
-            )
-        }
-
-        guard let apiKey = HotPepperAPIService.apiKey else {
-            searchIssue = .configuration
-            return
+            coordinate = currentCoordinate
         }
 
         do {
-            let results = try await HotPepperAPIService().fetchRestaurants(
-                latitude: coordinate.latitude,
-                longitude: coordinate.longitude,
-                apiKey: apiKey,
-                range: filters.range == 0 ? 5 : filters.range,
-                genres: filters.selectedGenres,
-                budget: filters.budget,
-                openingHours: filters.openingHours,
-                partyCapacity: filters.partyCapacity,
-                partyOptions: filters.selectedPartyOptions,
-                preferences: filters.selectedPreferences,
-                name: filters.restaurantName
-            )
+            let results = try await HotPepperAPIService().fetchRestaurants(filters: filters, coordinate: coordinate)
 
             guard !results.isEmpty else {
                 searchIssue = .noResults
@@ -196,7 +176,7 @@ struct RootTabView: View {
             )
 
         } catch {
-            searchIssue = .connection
+            searchIssue = (error as? SearchIssue) ?? .connection
         }
     }
 }

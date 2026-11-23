@@ -240,7 +240,7 @@ struct HomeMapView: View {
                         .bold()
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(.regularMaterial, in: Capsule())
+                        .glassEffect(.regular.interactive(), in: Capsule())
                 }
             }
 
@@ -288,7 +288,7 @@ struct HomeMapView: View {
                     .font(.title3)
                     .foregroundStyle(Color.moguInk)
                     .padding(12)
-                    .background(.regularMaterial, in: Circle())
+                    .glassEffect(.regular.interactive(), in: Circle())
             }
             .buttonStyle(.plain)
             .tutorialTarget(.filter, active: tutorial.step == .filter)
@@ -374,7 +374,7 @@ struct HomeMapView: View {
                     .font(.title3)
                     .foregroundStyle(Color.moguInk)
                     .frame(width: 44, height: 44)
-                    .background(.regularMaterial, in: Circle())
+                    .glassEffect(.regular.interactive(), in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("ジャンルの色")

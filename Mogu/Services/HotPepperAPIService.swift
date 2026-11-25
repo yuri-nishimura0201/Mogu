@@ -5,7 +5,7 @@ struct HotPepperAPIService {
     static let pageSize = 40
     private let apiKey: String
 
-    init() throws {
+    init() throws { //正しくAPIキーが設定されているか
         guard let key = Bundle.main.object(forInfoDictionaryKey: "HOTPEPPER_API_KEY") as? String,
               !key.isEmpty, !key.contains("$(") else {
             throw SearchIssue.configuration
@@ -13,6 +13,7 @@ struct HotPepperAPIService {
         apiKey = key
     }
 
+    //検索
     func fetchRestaurants(
         filters: SearchFilters,
         coordinate: CLLocationCoordinate2D,
@@ -96,11 +97,13 @@ struct HotPepperAPIService {
 
         let (data, urlResponse) = try await URLSession.shared.data(from: url)
 
+        //HTTPステータスコードの確認
         guard let httpResponse = urlResponse as? HTTPURLResponse,
               200..<300 ~= httpResponse.statusCode else {
             throw URLError(.badServerResponse)
         }
 
+        //JSON→Restaurant型
         let decodedResponse = try JSONDecoder().decode(
             RestaurantResponse.self,
             from: data

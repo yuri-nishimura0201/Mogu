@@ -4,6 +4,7 @@ struct RestaurantRandomizer {
         excluding previousID: String? = nil
     ) -> Restaurant? {
         let candidates = restaurants.filter {
+            //前回と違うIDのお店
             $0.id != previousID
         }
 

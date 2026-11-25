@@ -9,6 +9,7 @@ final class FavoritesStore: ObservableObject {
     private let storageKey = "favoriteRestaurantIDs"
     private let restaurantsStorageKey = "favoriteRestaurants"
 
+    //保存していたお気に入りを読み込む
     init() {
         let savedIDs = UserDefaults.standard.stringArray(
             forKey: storageKey
@@ -16,6 +17,7 @@ final class FavoritesStore: ObservableObject {
 
         favoriteIDs = Set(savedIDs)
 
+        //保存していた店舗情報を読み込む
         if let data = UserDefaults.standard.data(
             forKey: restaurantsStorageKey
         ) {
@@ -36,6 +38,7 @@ final class FavoritesStore: ObservableObject {
         favoriteIDs.contains(restaurantID)
     }
 
+    //ハートで状態管理
     func toggleFavorite(_ restaurant: Restaurant) {
         if favoriteIDs.contains(restaurant.id) {
             favoriteIDs.remove(restaurant.id)
@@ -48,18 +51,21 @@ final class FavoritesStore: ObservableObject {
         saveFavorites()
     }
 
+    //お気に入り全削除
     func removeAll() {
         favoriteIDs.removeAll()
         favoriteRestaurants.removeAll()
         saveFavorites()
     }
 
+    //ipone内に保存
     private func saveFavorites() {
         UserDefaults.standard.set(
             Array(favoriteIDs),
             forKey: storageKey
         )
 
+        //JSONEncoderでデータに保存
         do {
             let data = try JSONEncoder().encode(favoriteRestaurants)
             UserDefaults.standard.set(

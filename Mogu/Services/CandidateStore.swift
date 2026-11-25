@@ -26,6 +26,7 @@ final class CandidateStore: ObservableObject {
         saveLists()
     }
 
+    //リスト名の変更
     func renameList(id: UUID, name: String) {
         guard let index = lists.firstIndex(where: { $0.id == id }) else {
             return

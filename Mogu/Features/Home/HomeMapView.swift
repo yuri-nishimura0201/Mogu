@@ -16,9 +16,9 @@ struct HomeMapView: View {
     @State private var showSearchButton = false
     @State private var showGenreLegend = false
     @State private var selectedRestaurant: Restaurant?
-    @State private var searchIssue: SearchIssue?
+    @State private var searchIssue: SearchIssue?//検索時のエラー情報の保持
     @State private var lastSearchCenter: CLLocationCoordinate2D?
-    @State private var latestSearchID: UUID?
+    @State private var latestSearchID: UUID?//最新の検索を区別するID
     private enum MapDestination {
         case detail(Restaurant)
         case search
@@ -73,6 +73,7 @@ struct HomeMapView: View {
         }
     }
 
+    //チュートリアルで強調するボタンやピンの位置を計算
     private func spotlightRect(_ step: TutorialStep, _ anchors: TutorialBounds.Value,
                                _ geometry: GeometryProxy, _ map: MapProxy) -> CGRect? {
         func frames(_ key: TutorialTarget) -> [CGRect] {
@@ -192,11 +193,11 @@ struct HomeMapView: View {
             }
 
 
-
+            //現在地が取得できたら地図を移動して店舗検索
             .onReceive(locationService.$coordinate.compactMap { $0 }) { coordinate in
 
                 currentCoordinate = coordinate
-
+                //駅を指定してたら現在地で検索し直さない
                 if case .station = filters.location {
                     return
                 }
@@ -345,6 +346,7 @@ struct HomeMapView: View {
         }
     }
 
+    //店舗一覧のシートが開いてたら閉じてから切り替える
     private func open(_ destination: MapDestination) {
         if showsList {
             nextDestination = destination
@@ -439,6 +441,7 @@ struct HomeMapView: View {
                     }
             }
         }
+        //チュートリアルで強調するボタンを探す
         .overlayPreferenceValue(TutorialBounds.self) { anchors in
             if let step = tutorial.step, step == .favorite || step == .candidate {
                 GeometryReader { geometry in
@@ -605,6 +608,7 @@ struct HomeMapView: View {
             let result = try await HotPepperAPIService().fetchRestaurants(filters: filters, coordinate: coordinate)
 
             guard latestSearchID == requestID else { return }
+            //検索結果を近い順に並べる
             let searchLocation = CLLocation(
                 latitude: latitude,
                 longitude: longitude
@@ -613,11 +617,14 @@ struct HomeMapView: View {
                 .map { (restaurant: $0, distance: $0.distance(from: searchLocation)) }
                 .sorted { $0.distance < $1.distance }
                 .map(\.restaurant)
-
+            
+            //取得した店舗を画面に反映する
             restaurants = sortedRestaurants
+            //チュートリアル中は、検索結果０のアラートをださない
             searchIssue = sortedRestaurants.isEmpty && tutorial.step == nil ? .noResults : nil
             fitMapToRestaurants(sortedRestaurants)
         } catch {
+            //エラー処理
             guard latestSearchID == requestID else { return }
             if tutorial.step == nil { searchIssue = (error as? SearchIssue) ?? .connection }
         }

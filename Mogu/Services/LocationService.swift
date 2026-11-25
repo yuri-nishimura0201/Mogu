@@ -11,6 +11,7 @@ class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     @Published private(set) var locationUnavailable = false
 
+    //最初の準備
     override init() {
         super.init()
         permissionResolved = locationManager.authorizationStatus != .notDetermined
@@ -19,6 +20,7 @@ class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     func requestLocation() {
         locationUnavailable = false
+        //位置情報を使っていいかの確認
         switch locationManager.authorizationStatus {
         case .notDetermined:
             locationManager.requestWhenInUseAuthorization()
@@ -31,6 +33,7 @@ class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
     }
 
+    //位置情報への許可の種類が変わった際
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         permissionResolved = manager.authorizationStatus != .notDetermined
         if manager.authorizationStatus == .authorizedWhenInUse ||
@@ -50,6 +53,7 @@ class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
         coordinate = location.coordinate
     }
 
+    //位置情報が取得できない場合
     func locationManager(
         _ manager: CLLocationManager,
         didFailWithError error: Error

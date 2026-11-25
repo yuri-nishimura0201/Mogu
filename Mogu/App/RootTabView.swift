@@ -32,11 +32,13 @@ struct RootTabView: View {
         TabView(selection: $selectedTab) {
             NavigationStack {
                 Group {
+                    //絞り込み画面
                     if showSearchFilter {
                         SearchFilterView(
                             tutorial: tutorial,
                             filters: $filters,
                             showSearchFilter: $showSearchFilter,
+                            //ランダムボタン
                             onRandom: {
                                 if tutorial.step == .random {
                                     randomAfterTutorial = true
@@ -58,7 +60,9 @@ struct RootTabView: View {
                         )
                     }
                 }
+                //チュートリアル中のタブバー
                 .toolbar(tutorial.step == nil ? .automatic : .hidden, for: .tabBar)
+                //おまかせ画面への遷移
                 .navigationDestination(
                     isPresented: Binding(
                         get: { randomRestaurant != nil },

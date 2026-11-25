@@ -34,7 +34,7 @@ struct TutorialHint: View {
                     .font(.subheadline.bold())
                     .accessibilityLabel("ステップ \(step.number)、全6ステップ")
                 Spacer()
-                Button(step == .random ? "終了" : "スキップ", action: finish)
+                Button("終了", action: finish)
                     .font(.subheadline)
                     .frame(minHeight: 44)
             }
@@ -63,19 +63,25 @@ struct TutorialHint: View {
 }
 
 struct TutorialArrow: View {
+    static let diameter: CGFloat = 44
+    static let gap: CGFloat = 14
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let pointsDown: Bool
 
     var body: some View {
         Image(systemName: pointsDown ? "arrow.down" : "arrow.up")
-            .font(.system(size: 19, weight: .bold))
+            .font(.system(size: 28, weight: .bold))
             .foregroundStyle(Color.moguFill)
-            .frame(width: 32, height: 32)
+            .frame(width: Self.diameter, height: Self.diameter)
             .background(.white, in: Circle())
             .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
             .phaseAnimator(reduceMotion ? [false] : [false, true]) { arrow, near in
-                arrow.offset(y: near ? (pointsDown ? 5 : -5) : 0)
-            } animation: { _ in .easeInOut(duration: 0.55) }
+                let distanceTowardButton: CGFloat = pointsDown ? 10 : -10
+                arrow.offset(y: near ? distanceTowardButton : 0)
+            } animation: { near in
+                near ? .easeOut(duration: 0.32) : .easeInOut(duration: 0.55)
+            }
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }
@@ -106,10 +112,12 @@ struct TutorialSpotlight: View {
                 .accessibilityHidden(true)
 
             if let button = arrowTarget ?? target, bounds.intersects(button) {
-                let pointsDown = button.minY >= 44
+                let radius = TutorialArrow.diameter / 2
+                let distance = radius + TutorialArrow.gap
+                let pointsDown = button.minY >= TutorialArrow.diameter + TutorialArrow.gap
                 TutorialArrow(pointsDown: pointsDown)
-                    .position(x: min(max(16, button.midX), bounds.width - 16),
-                              y: pointsDown ? button.minY - 26 : button.maxY + 26)
+                    .position(x: min(max(radius, button.midX), bounds.width - radius),
+                              y: pointsDown ? button.minY - distance : button.maxY + distance)
             }
 
             let above = hole?.minY ?? 0

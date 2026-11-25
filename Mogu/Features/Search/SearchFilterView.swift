@@ -390,7 +390,8 @@ struct SearchFilterView: View {
 
                 .overlay(alignment: .top) {
                     if tutorial.step == .editing {
-                        TutorialArrow(pointsDown: true).offset(y: -40)
+                        TutorialArrow(pointsDown: true)
+                            .offset(y: -(TutorialArrow.diameter + TutorialArrow.gap))
                     }
                 }
 

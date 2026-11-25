@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreLocation
 
 struct Restaurant: Identifiable, Codable {
     let id: String
@@ -19,6 +20,10 @@ struct Restaurant: Identifiable, Codable {
     let genre: RestaurantGenre
     let budget: RestaurantBudget
     let urls: RestaurantURLs
+
+    func distance(from center: CLLocation) -> CLLocationDistance {
+        CLLocation(latitude: lat, longitude: lng).distance(from: center)
+    }
 }
 
 struct RestaurantPhoto: Codable {

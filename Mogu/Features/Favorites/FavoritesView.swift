@@ -39,6 +39,9 @@ struct FavoritesView: View {
     }
 
     private func matchingIDs() async throws -> Set<String>? {
+        if case .currentLocation = filters.location, filters.range != .unspecified,
+           locationService.coordinate == nil { throw SearchIssue.location }
+
         guard requiresAPISearch else {
             return nil
         }
@@ -86,7 +89,7 @@ struct FavoritesView: View {
             }
             start += results.count
 
-            if results.count < HotPepperAPIService.pageSize {
+            if matchedIDs == favoriteIDs || results.count < HotPepperAPIService.pageSize {
                 break
             }
         } while start <= 1000
@@ -108,8 +111,7 @@ struct FavoritesView: View {
         }
 
         let center = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        let location = CLLocation(latitude: restaurant.lat, longitude: restaurant.lng)
-        return center.distance(from: location) <= Double(meters)
+        return restaurant.distance(from: center) <= Double(meters)
     }
 
     private func matchingFavorites(ids: Set<String>?) -> [Restaurant] {
@@ -133,34 +135,32 @@ struct FavoritesView: View {
         }
     }
 
-    private var filteredRestaurants: [Restaurant] {
-        matchingFavorites(ids: matchedFavoriteIDs)
-    }
-
-    private func updateResults(forDraw: Bool) async {
-        if forDraw {
-            guard !isPicking else { return }
-            isPicking = true
-        }
-        defer { if forDraw { isPicking = false } }
+    private func refreshFavoriteList() async {
         do {
-            if case .currentLocation = filters.location, filters.range != .unspecified,
-               locationService.coordinate == nil { throw SearchIssue.location }
             let ids = try await matchingIDs()
             try Task.checkCancellation()
-            if forDraw {
-                drawCandidates = matchingFavorites(ids: ids)
-                guard let pick = RestaurantRandomizer.pick(from: drawCandidates) else {
-                    searchIssue = .noResults
-                    return
-                }
-                randomRestaurant = pick
-            } else {
-                matchedFavoriteIDs = ids
-            }
+            matchedFavoriteIDs = ids
         } catch {
             guard !Task.isCancelled else { return }
-            if !forDraw { matchedFavoriteIDs = [] }
+            matchedFavoriteIDs = []
+            searchIssue = (error as? SearchIssue) ?? .connection
+        }
+    }
+
+    private func pickRandomFavorite() async {
+        guard !isPicking else { return }
+        isPicking = true
+        defer { isPicking = false }
+        do {
+            let ids = try await matchingIDs()
+            try Task.checkCancellation()
+            drawCandidates = matchingFavorites(ids: ids)
+            guard let pick = RestaurantRandomizer.pick(from: drawCandidates) else {
+                throw SearchIssue.noResults
+            }
+            randomRestaurant = pick
+        } catch {
+            guard !Task.isCancelled else { return }
             searchIssue = (error as? SearchIssue) ?? .connection
         }
     }
@@ -174,12 +174,13 @@ struct FavoritesView: View {
                         showSearchFilter: $showSearchFilter,
                         source: .favorites,
                         onRandom: {
-                            Task { await updateResults(forDraw: true) }
+                            Task { await pickRandomFavorite() }
                         }
                     )
                     .disabled(isPicking)
                     .overlay { if isPicking { ProgressView("候補を確認中") } }
                 } else {
+                    let filteredRestaurants = matchingFavorites(ids: matchedFavoriteIDs)
                     if favoritesStore.favoriteRestaurants.isEmpty {
                         ContentUnavailableView(
                             "お気に入りはまだありません",
@@ -268,9 +269,9 @@ struct FavoritesView: View {
         .task(id: listSearchKey) {
             guard !showSearchFilter else { return }
             if case .station = filters.location {
-                await updateResults(forDraw: false)
+                await refreshFavoriteList()
             } else if !requiresAPISearch || locationService.coordinate != nil || locationService.locationUnavailable {
-                await updateResults(forDraw: false)
+                await refreshFavoriteList()
             }
         }
 
@@ -285,7 +286,13 @@ struct FavoritesView: View {
             issue.alert {
                 showSearchFilter = true
             } retry: {
-                Task { await updateResults(forDraw: showSearchFilter) }
+                Task {
+                    if showSearchFilter {
+                        await pickRandomFavorite()
+                    } else {
+                        await refreshFavoriteList()
+                    }
+                }
             }
         }
     }

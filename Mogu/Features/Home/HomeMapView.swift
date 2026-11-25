@@ -262,8 +262,8 @@ struct HomeMapView: View {
                     .overlay(alignment: .topLeading) {
                         if tutorial.step == .detail {
                             TutorialArrow(pointsDown: false)
-                                .padding(.leading, 20)
-                                .padding(.top, 6)
+                                .padding(.leading, 14)
+                                .padding(.top, TutorialArrow.gap)
                         }
                     }
                     .safeAreaInset(edge: .bottom) {
@@ -289,8 +289,11 @@ struct HomeMapView: View {
                     .foregroundStyle(Color.moguInk)
                     .padding(12)
                     .glassEffect(.regular.interactive(), in: Circle())
+                    .frame(minWidth: 48, minHeight: 48)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("検索・絞り込み")
             .tutorialTarget(.filter, active: tutorial.step == .filter)
             .padding(.trailing, 16)
         }
@@ -601,24 +604,19 @@ struct HomeMapView: View {
         do {
             let result = try await HotPepperAPIService().fetchRestaurants(filters: filters, coordinate: coordinate)
 
+            guard latestSearchID == requestID else { return }
             let searchLocation = CLLocation(
                 latitude: latitude,
                 longitude: longitude
             )
-            let sortedRestaurants = result.sorted {
-                CLLocation(latitude: $0.lat, longitude: $0.lng)
-                    .distance(from: searchLocation)
-                <
-                CLLocation(latitude: $1.lat, longitude: $1.lng)
-                    .distance(from: searchLocation)
-            }
+            let sortedRestaurants = result
+                .map { (restaurant: $0, distance: $0.distance(from: searchLocation)) }
+                .sorted { $0.distance < $1.distance }
+                .map(\.restaurant)
 
-            await MainActor.run {
-                guard latestSearchID == requestID else { return }
-                restaurants = sortedRestaurants
-                searchIssue = sortedRestaurants.isEmpty && tutorial.step == nil ? .noResults : nil
-                fitMapToRestaurants(sortedRestaurants)
-            }
+            restaurants = sortedRestaurants
+            searchIssue = sortedRestaurants.isEmpty && tutorial.step == nil ? .noResults : nil
+            fitMapToRestaurants(sortedRestaurants)
         } catch {
             guard latestSearchID == requestID else { return }
             if tutorial.step == nil { searchIssue = (error as? SearchIssue) ?? .connection }
@@ -634,19 +632,8 @@ struct HomeMapView: View {
             longitude: center.longitude
         )
 
-        let nearby = restaurants.sorted {
-            CLLocation(latitude: $0.lat, longitude: $0.lng)
-                .distance(from: centerLocation)
-            <
-            CLLocation(latitude: $1.lat, longitude: $1.lng)
-                .distance(from: centerLocation)
-        }
-        .prefix(6)
-
-        let maxDistance = nearby.map {
-            CLLocation(latitude: $0.lat, longitude: $0.lng)
-                .distance(from: centerLocation)
-        }.max() ?? 0
+        let distances = restaurants.map { $0.distance(from: centerLocation) }.sorted()
+        let maxDistance = distances.prefix(6).last ?? 0
 
         let desiredDelta = min(
             max(maxDistance * 2.8 / 111_000, 0.005),

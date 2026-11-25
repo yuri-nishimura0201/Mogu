@@ -17,7 +17,7 @@ enum TutorialStep {
 
     var message: String {
         switch self {
-        case .palette: return "ピンの色で料理ジャンルを確認できます。"
+        case .palette: return "矢印が指すボタンを押して進んでください。まずは左上のパレットで、ピンの色の意味を確認しましょう。"
         case .legend: return "パレットをもう一度押すと閉じます。"
         case .pin: return "ピンを押すと店舗の詳細が開きます。"
         case .detail: return "地図に戻ると案内が続きます。"

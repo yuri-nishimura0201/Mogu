@@ -93,6 +93,18 @@ Mogu（モグ）は、近くの飲食店を探したり、気になるお店を�
 - 対応端末：iPhone（iOS 26.2以降）
 - 使用言語：Swift
 
+### 初回の起動手順
+
+1. 店舗検索にはホットペッパーグルメのAPIキーを使用します。お持ちでない方は、リクルートの登録ページで発行できます。[APIキーの発行はこちら](https://webservice.recruit.co.jp/register)
+2. ターミナルでこのREADMEがあるフォルダを開き、次のコマンドで設定ファイルを作成します。
+
+   ```sh
+   cp -n Secrets.xcconfig.example Mogu/Secrets.xcconfig
+   ```
+
+3. 作成した `Mogu/Secrets.xcconfig` を開き、`HOTPEPPER_API_KEY =` の右側にご自身のキーを入力して保存します。このファイルはGitの管理対象外です。
+4. `Mogu.xcodeproj` をXcodeで開き、iPhoneシミュレーターを選んで実行します。すぐに店舗検索を試す場合は、初回チュートリアルの「終了」を押してください。ホーム右上の絞り込みから「新宿駅」など日本の駅を選び、「マップで見る」を押すと、周辺のお店がピンで表示されます。
+
 ## 📖 使用しているAPI
 
 飲食店情報の取得には、リクルートが提供する「Hot PepperグルメAPI」を利用しています。地図の表示にはAppleのMapKitを使用しています。

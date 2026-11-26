@@ -1,6 +1,6 @@
 
 import SwiftUI
-import MapKit
+import CoreLocation
 
 struct FavoritesView: View {
     @EnvironmentObject private var favoritesStore: FavoritesStore
@@ -14,19 +14,24 @@ struct FavoritesView: View {
     @StateObject private var locationService = LocationService()
     @State private var matchedFavoriteIDs: Set<String>?
 
-    //取得招待が変化した際に検索を再実行する
+    //取得状態が変化した際に検索を再実行する
     private struct ListSearchKey: Equatable {
         let favoriteIDs: Set<String>
         let hasLocation: Bool
         let locationUnavailable: Bool
     }
 
+    private var usesCurrentLocation: Bool {
+        if case .currentLocation = filters.location { return true }
+        return false
+    }
+
     private var listSearchKey: ListSearchKey? {
         //絞り込み条件の編集中は検索を実行しない
         guard !showSearchFilter else { return nil }
         return ListSearchKey(favoriteIDs: favoritesStore.favoriteIDs,
-                             hasLocation: locationService.coordinate != nil,
-                             locationUnavailable: locationService.locationUnavailable)
+                             hasLocation: usesCurrentLocation && locationService.coordinate != nil,
+                             locationUnavailable: usesCurrentLocation && locationService.locationUnavailable)
     }
 
     //お気に入りの絞り込みにAPIへの問い合わせが必要か判定する
@@ -51,36 +56,34 @@ struct FavoritesView: View {
             return nil
         }
 
-        let service = try HotPepperAPIService()
-
-        let favoriteIDs = Set(
-            favoritesStore.favoriteRestaurants.map(\.id)
-        )
-
-        guard !favoriteIDs.isEmpty else {
+        let savedIDs = favoritesStore.favoriteRestaurants.map(\.id)
+        guard !savedIDs.isEmpty else {
             return []
         }
 
-        let coordinate: CLLocationCoordinate2D
+        let service = try HotPepperAPIService()
+        // お気に入りの検索画面には店舗名の入力欄がない。
+        var favoriteFilters = filters
+        favoriteFilters.restaurantName = ""
 
+        let coordinate: CLLocationCoordinate2D
         switch filters.location {
+        case .unspecified:
+            return try await service.matchingRestaurantIDs(savedIDs, filters: favoriteFilters)
         case .station(_, let latitude, let longitude):
             coordinate = CLLocationCoordinate2D(
                 latitude: latitude,
                 longitude: longitude
             )
-        case .currentLocation, .unspecified:
+        case .currentLocation:
             guard let current = locationService.coordinate else {
                 throw SearchIssue.location
             }
             coordinate = current
         }
 
-        // お気に入りの検索画面には店舗名の入力欄がない。
-        var favoriteFilters = filters
-        favoriteFilters.restaurantName = ""
-
-        //１回のAPI通信では全権取得ができないため複数ページに分けて取得
+        //１回のAPI通信では全件取得ができないため複数ページに分けて取得
+        let favoriteIDs = Set(savedIDs)
         var matchedIDs: Set<String> = []
         var start = 1
         repeat {
@@ -281,15 +284,13 @@ struct FavoritesView: View {
         //検索キーが変化したら一覧を更新し以前のtaskをキャンセルする
         .task(id: listSearchKey) {
             guard !showSearchFilter else { return }
-            if case .station = filters.location {
-                await refreshFavoriteList()
-            } else if !requiresAPISearch || locationService.coordinate != nil || locationService.locationUnavailable {
-                await refreshFavoriteList()
-            }
+            if usesCurrentLocation, requiresAPISearch,
+               locationService.coordinate == nil, !locationService.locationUnavailable { return }
+            await refreshFavoriteList()
         }
 
-        .onAppear {
-            locationService.requestLocation()
+        .onChange(of: usesCurrentLocation, initial: true) { _, needsLocation in
+            if needsLocation { locationService.requestLocation() }
         }
 
         .sheet(item: $candidateRestaurant) { restaurant in

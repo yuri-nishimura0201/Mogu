@@ -2,7 +2,7 @@ import SwiftUI
 
 //検索時のエラーと対処方法を一元管理。各Viewでの重複実装を回避
 enum SearchIssue: String, Error, Identifiable {
-    case noResults, location, connection, configuration
+    case noResults, location, connection, configuration, authentication
 
     var id: Self { self }
 
@@ -19,6 +19,9 @@ enum SearchIssue: String, Error, Identifiable {
         case .connection:
             title = "お店の情報を取得できませんでした"
             action = .default(Text("再試行"), action: retry)
+        case .authentication:
+            return Alert(title: Text("APIキーを確認してください"),
+                         message: Text("店舗情報の認証に失敗しました。設定したAPIキーが正しく、有効か確認してください。"))
         case .configuration:
             return Alert(title: Text("検索に必要なAPIキーが設定されていません"))
         }

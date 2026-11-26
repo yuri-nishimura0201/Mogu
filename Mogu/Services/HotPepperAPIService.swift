@@ -20,15 +20,38 @@ struct HotPepperAPIService {
         start: Int = 1
     ) async throws -> [Restaurant] {
 
+        let locationItems = [
+            URLQueryItem(name: "lat", value: String(coordinate.latitude)),
+            URLQueryItem(name: "lng", value: String(coordinate.longitude)),
+            URLQueryItem(name: "range", value: String(filters.range.apiCode))
+        ]
+        return try await fetchRestaurants(filters: filters, searchItems: locationItems, start: start)
+    }
+
+    func matchingRestaurantIDs(_ ids: [String], filters: SearchFilters) async throws -> Set<String> {
+        let batchSize = 20 // グルメサーチAPIで一度に指定できる店舗IDの上限
+        var matchedIDs: Set<String> = []
+        for start in stride(from: 0, to: ids.count, by: batchSize) {
+            try Task.checkCancellation()
+            let end = min(start + batchSize, ids.count)
+            let idItem = URLQueryItem(name: "id", value: ids[start..<end].joined(separator: ","))
+            let shops = try await fetchRestaurants(filters: filters, searchItems: [idItem], start: 1)
+            matchedIDs.formUnion(shops.map(\.id))
+        }
+        return matchedIDs
+    }
+
+    private func fetchRestaurants(
+        filters: SearchFilters,
+        searchItems: [URLQueryItem],
+        start: Int
+    ) async throws -> [Restaurant] {
         var components = URLComponents(
             string: "https://webservice.recruit.co.jp/hotpepper/gourmet/v1/"
         )!
 
-        components.queryItems = [
+        components.queryItems = searchItems + [
             URLQueryItem(name: "key", value: apiKey),
-            URLQueryItem(name: "lat", value: String(coordinate.latitude)),
-            URLQueryItem(name: "lng", value: String(coordinate.longitude)),
-            URLQueryItem(name: "range", value: String(filters.range.apiCode)),
             URLQueryItem(name: "count", value: String(Self.pageSize)),
             URLQueryItem(name: "start", value: String(start)),
             URLQueryItem(name: "format", value: "json")
@@ -109,6 +132,16 @@ struct HotPepperAPIService {
             from: data
         )
 
-        return decodedResponse.results.shop
+        let results = decodedResponse.results
+        if let errors = results.error, !errors.isEmpty {
+            if errors.contains(where: { $0.code == 2000 }) {
+                throw SearchIssue.authentication
+            }
+            throw URLError(.badServerResponse)
+        }
+        guard let shops = results.shop else {
+            throw URLError(.badServerResponse)
+        }
+        return shops
     }
 }

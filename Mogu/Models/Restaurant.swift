@@ -8,7 +8,7 @@
 import Foundation
 import CoreLocation
 
-//APIからのデータ取得と端末保存、どちらにも対応するためCodavleを使用
+//APIからのデータ取得と端末保存、どちらにも対応するためCodableを使用
 struct Restaurant: Identifiable, Codable {
     let id: String
     let name: String
@@ -42,7 +42,12 @@ struct RestaurantResponse: Decodable {
 }
 
 struct RestaurantResults: Decodable {
-    let shop: [Restaurant]
+    let shop: [Restaurant]?
+    let error: [HotPepperError]?
+}
+
+struct HotPepperError: Decodable {
+    let code: Int
 }
 
 struct RestaurantGenre: Codable {

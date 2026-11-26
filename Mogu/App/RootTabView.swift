@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import MapKit
+import CoreLocation
 
 struct RootTabView: View {
 
@@ -142,11 +142,11 @@ struct RootTabView: View {
                     .background(.regularMaterial)
             }
         }
+        //アプリ内の文字サイズ設定と端末設定を基に、全体の文字サイズを適用する
         .dynamicTypeSize(textSize.displaySize(systemSize: systemTextSize))
 
     }
 
-    //アプリ内の文字サイズ設定と端末設定を基に、全体の文字サイズを適用する
     private func pickRandomRestaurant() async {
         guard !isRandomLoading else { return }
 

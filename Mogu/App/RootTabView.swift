@@ -14,7 +14,7 @@ struct RootTabView: View {
     @AppStorage("appTextSize") private var textSize: AppTextSize = .system
     private enum AppTab { case home, favorites, candidates, settings }
     @State private var selectedTab = AppTab.home
-    @State private var homeSession = UUID()
+    @State private var homeSession = UUID()//チュートリアルの再実行時にホーム画面を初期化するため
     @StateObject private var tutorial = MoguTutorial()
     @State private var showTutorialCompletion = false
     @State private var randomAfterTutorial = false
@@ -40,6 +40,7 @@ struct RootTabView: View {
                             showSearchFilter: $showSearchFilter,
                             //ランダムボタン
                             onRandom: {
+                                //チュートリアル中はすぐに抽選せず、終了確認後に抽選する
                                 if tutorial.step == .random {
                                     randomAfterTutorial = true
                                     tutorial.finish()
@@ -60,9 +61,7 @@ struct RootTabView: View {
                         )
                     }
                 }
-                //チュートリアル中のタブバー
                 .toolbar(tutorial.step == nil ? .automatic : .hidden, for: .tabBar)
-                //おまかせ画面への遷移
                 .navigationDestination(
                     isPresented: Binding(
                         get: { randomRestaurant != nil },
@@ -109,6 +108,7 @@ struct RootTabView: View {
                     Label("設定", systemImage: "gearshape")
                 }
         }
+        //チュートリアルの進行状況に応じて画面表示を切り替える
         .onChange(of: tutorial.step) { previous, step in
             if step == .random { showSearchFilter = true }
             if previous == .random && step == nil { showTutorialCompletion = true }
@@ -146,6 +146,7 @@ struct RootTabView: View {
 
     }
 
+    //アプリ内の文字サイズ設定と端末設定を基に、全体の文字サイズを適用する
     private func pickRandomRestaurant() async {
         guard !isRandomLoading else { return }
 
@@ -154,6 +155,7 @@ struct RootTabView: View {
 
         let coordinate: CLLocationCoordinate2D
 
+        //検索条件に応じてAPI検索に使用する座標を決定する
         switch filters.location {
         case .station(_, let latitude, let longitude):
             coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)

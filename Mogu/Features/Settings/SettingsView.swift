@@ -34,6 +34,7 @@ enum AppAppearance: String, CaseIterable {
         }
     }
 
+    //SwiftUIで使用できる表示モードに変換する
     var colorScheme: ColorScheme? {
         switch self {
         case .system: nil

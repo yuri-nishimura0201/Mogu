@@ -4,6 +4,7 @@ struct RandomRestaurantView: View {
     @Environment(\.dismiss) private var dismiss
 
     let restaurant: Restaurant
+    //再抽選処理は呼び出し元にやらせる
     let onRetry: () -> Void
 
     var body: some View {

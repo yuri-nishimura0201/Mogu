@@ -51,14 +51,12 @@ final class FavoritesStore: ObservableObject {
         saveFavorites()
     }
 
-    //お気に入り全削除
     func removeAll() {
         favoriteIDs.removeAll()
         favoriteRestaurants.removeAll()
         saveFavorites()
     }
 
-    //ipone内に保存
     private func saveFavorites() {
         UserDefaults.standard.set(
             Array(favoriteIDs),

@@ -37,6 +37,7 @@ struct MoguApp: App {
                         .transition(.opacity)
                 }
             }
+            //保存された外観設定をアプリ全体に適用する
             .preferredColorScheme(appearance.colorScheme)
         }
     }

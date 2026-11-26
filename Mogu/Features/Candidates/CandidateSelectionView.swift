@@ -5,8 +5,8 @@ struct CandidateSelectionView: View {
     @Environment(\.dismiss) private var dismiss
 
     let restaurant: Restaurant
+    //複数のリストを選択できるようにし、選択IDの重複を防ぐ
     @State private var selectedListIDs: Set<UUID> = []
-
     @State private var showCreateList = false
     @State private var listName = ""
 
@@ -76,6 +76,7 @@ struct CandidateSelectionView: View {
         }
     }
 
+    //選択した各リストへの店舗追加をstoreに任せる
     private func addToSelectedLists() {
         for listID in selectedListIDs {
             candidateStore.addRestaurant(restaurant, to: listID)

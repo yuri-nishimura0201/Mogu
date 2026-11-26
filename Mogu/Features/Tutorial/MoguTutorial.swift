@@ -47,6 +47,7 @@ final class MoguTutorial: ObservableObject {
         step = .palette
     }
 
+    //想定した状態になったら次に進む
     func advance(from expected: TutorialStep, to next: TutorialStep) {
         if step == expected { step = next }
     }

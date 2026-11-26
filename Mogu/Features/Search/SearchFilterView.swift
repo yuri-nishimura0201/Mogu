@@ -30,6 +30,8 @@ struct SearchFilterView: View {
 
                 Button("リセット") {
                     filters = SearchFilters()
+                    stationName = ""
+                    stationSuggestions.clear()
                 }
                 .font(.caption)
                 .foregroundStyle(Color.moguInk)
@@ -439,6 +441,7 @@ struct SearchFilterView: View {
         guard !name.isEmpty else { return }
 
         isSearchingStation = true
+        //検索の結果に関わらず読み込み表示を解除
         defer { isSearchingStation = false }
 
         let request = MKLocalSearch.Request()
@@ -521,6 +524,7 @@ struct SearchFilterView: View {
         .buttonStyle(.plain)
     }
 
+    //予算の表示名とAPIの予算コードを対応づける
     private let budgets: [(name: String, code: String)] = [
         ("指定なし", ""),
         ("～500円", "B009"),

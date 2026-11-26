@@ -1,5 +1,6 @@
 import SwiftUI
 
+//検索時のエラーと対処方法を一元管理。各Viewでの重複実装を回避
 enum SearchIssue: String, Error, Identifiable {
     case noResults, location, connection, configuration
 

@@ -4,7 +4,8 @@ enum SearchRange: Int, CaseIterable {
 
     // APIには「指定なし」がないため、従来どおり最大範囲で検索する。
     var apiCode: Int { self == .unspecified ? Self.km3.rawValue : rawValue }
-
+    
+    //API用の数値とは別に実際の距離をm単位で管理
     var meters: Int? {
         switch self {
         case .unspecified: nil
@@ -16,6 +17,7 @@ enum SearchRange: Int, CaseIterable {
         }
     }
 
+    //距離に応じてmとkmを切り替えて画面表示用の文字列を生成
     var title: String {
         guard let meters else { return "指定なし" }
         if meters < 1000 { return "\(meters)m以内" }

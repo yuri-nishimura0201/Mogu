@@ -8,6 +8,7 @@
 import Foundation
 import CoreLocation
 
+//APIからのデータ取得と端末保存、どちらにも対応するためCodavleを使用
 struct Restaurant: Identifiable, Codable {
     let id: String
     let name: String
@@ -21,6 +22,7 @@ struct Restaurant: Identifiable, Codable {
     let budget: RestaurantBudget
     let urls: RestaurantURLs
 
+    //基準地点から店舗までの直線距離をm単位で取得
     func distance(from center: CLLocation) -> CLLocationDistance {
         CLLocation(latitude: lat, longitude: lng).distance(from: center)
     }

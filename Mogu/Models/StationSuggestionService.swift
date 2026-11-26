@@ -2,6 +2,7 @@
 import MapKit
 import Combine
 
+//UIに出る検索候補をメインアクター場で管理
 @MainActor
 final class StationSuggestionService: NSObject, ObservableObject, @preconcurrency MKLocalSearchCompleterDelegate {
 
@@ -11,8 +12,10 @@ final class StationSuggestionService: NSObject, ObservableObject, @preconcurrenc
 
     override init() {
         super.init()
-
+        
+        //検索候補が更新されたらデリゲートを通す
         completer.delegate = self
+        //検索対象を公共交通機関の施設に絞る
         completer.resultTypes = .pointOfInterest
         completer.pointOfInterestFilter = MKPointOfInterestFilter(
             including: [.publicTransport]
@@ -26,7 +29,6 @@ final class StationSuggestionService: NSObject, ObservableObject, @preconcurrenc
             clear()
             return
         }
-
         completer.queryFragment = keyword
     }
 

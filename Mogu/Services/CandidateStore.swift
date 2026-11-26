@@ -2,8 +2,10 @@
 import Foundation
 import Combine
 
+//候補リストの状態管理と保存
 final class CandidateStore: ObservableObject {
 
+    //メソッドを経由して更新する
     @Published private(set) var lists: [CandidateList] = []
 
     private let storageKey = "candidateLists"
@@ -46,6 +48,7 @@ final class CandidateStore: ObservableObject {
             return
         }
 
+        //候補リスト内の重複をふせぐ
         guard !lists[index].restaurants.contains(where: { $0.id == restaurant.id }) else {
             return
         }

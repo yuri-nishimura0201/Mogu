@@ -5,6 +5,7 @@ struct SavedDataView: View {
     @EnvironmentObject private var candidates: CandidateStore
     @State private var selection: Deletion?
 
+    //削除対象と表示ぶんをまとめて管理、ボタンの生成を共通化
     private enum Deletion: CaseIterable, Identifiable {
         case favorites, candidates, all
         var id: Self { self }
@@ -43,6 +44,7 @@ struct SavedDataView: View {
         }
     }
 
+    //データの削除は各Storeで
     private func delete(_ option: Deletion) {
         switch option {
         case .favorites: favorites.removeAll()

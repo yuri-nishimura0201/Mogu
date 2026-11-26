@@ -98,6 +98,7 @@ struct RestaurantDetailView: View {
 
                     Divider()
 
+                    //URLに変換できない場合店舗情報ページへのボタンを表示しない
                     if URL(string: restaurant.urls.pc) != nil {
                         Button {
                             showSafari = true
@@ -125,6 +126,7 @@ struct RestaurantDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 16) {
                     Button {
+                        //お気に入りの状態はStoreに任せて各画面で情報を共有
                         favoritesStore.toggleFavorite(restaurant)
                     } label: {
                         Image(

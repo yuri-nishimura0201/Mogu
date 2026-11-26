@@ -22,7 +22,7 @@ struct HomeMapView: View {
     private enum MapDestination {
         case detail(Restaurant)
         case search
-    }
+    }//地図画面からの遷移先を一元管理
     private static let compactList = PresentationDetent.height(180)
     private static let expandedList = PresentationDetent.height(450)
     @State private var showsList = false
@@ -33,16 +33,16 @@ struct HomeMapView: View {
     @Binding var showSearchFilter: Bool
     @Binding var restaurants: [Restaurant]
     @Binding var currentCoordinate: CLLocationCoordinate2D?
-
+    
     private var tutorialFavoriteID: String? {
         guard tutorial.step == .favorite else { return nil }
         return restaurants.first { !favoritesStore.isFavorite($0.id) }?.id
     }
-
+    
     private var isListTutorial: Bool {
         tutorial.step == .favorite || tutorial.step == .candidate || tutorial.step == .selecting
     }
-
+    
     var body: some View {
         MapReader { map in
             mapContent
@@ -59,6 +59,7 @@ struct HomeMapView: View {
                     }
                 }
         }
+        //位置情報の許可状態が確定して、操作可能になったらチュートリアルを開始
         .onChange(of: locationService.permissionResolved && scenePhase == .active, initial: true) { _, ready in
             if ready { tutorial.startIfNeeded() }
         }
@@ -72,7 +73,7 @@ struct HomeMapView: View {
             }
         }
     }
-
+    
     //チュートリアルで強調するボタンやピンの位置を計算
     private func spotlightRect(_ step: TutorialStep, _ anchors: TutorialBounds.Value,
                                _ geometry: GeometryProxy, _ map: MapProxy) -> CGRect? {
@@ -88,9 +89,11 @@ struct HomeMapView: View {
             let origin = geometry.frame(in: .global).origin
             for shop in restaurants {
                 let coordinate = CLLocationCoordinate2D(latitude: shop.lat, longitude: shop.lng)
+                //店舗の緯度経度を画面上の座標に変換
                 guard let point = map.convert(coordinate, to: .global) else { continue }
                 let y = point.y - origin.y - (highlightedRestaurantID == shop.id ? 14 : 0)
                 let rect = CGRect(x: point.x - origin.x - 20, y: y - 20, width: 40, height: 40)
+                //画面内に収まってるピンのみを強調対象にする
                 if rect.minY > 54, rect.maxY < geometry.size.height,
                    rect.minX >= 0, rect.maxX <= geometry.size.width { return rect }
             }
@@ -98,10 +101,10 @@ struct HomeMapView: View {
         default: return nil
         }
     }
-
+    
     private var mapContent: some View {
         ZStack(alignment: .top) {
-
+            
             Map(position: $cameraPosition) {
                 ForEach(restaurants) { restaurant in
                     Annotation(
@@ -142,39 +145,40 @@ struct HomeMapView: View {
                     }
                     .mapOverlayLevel(
                         level: highlightedRestaurantID == restaurant.id
-                            ? .aboveLabels
-                            : .aboveRoads
+                        ? .aboveLabels
+                        : .aboveRoads
                     )
                 }
             }
-
-
+            
+            //地図の移動が完了したタイミングで中心座標を取得
             .onMapCameraChange(frequency: .onEnd) { context in
-
+                
                 mapCenter = context.region.center
-
+                
                 if let selectedID = highlightedRestaurantID,
                    let restaurant = restaurants.first(where: { $0.id == selectedID }) {
-
+                    
                     let mapLocation = CLLocation(
                         latitude: context.region.center.latitude,
                         longitude: context.region.center.longitude
                     )
-
+                    
                     let restaurantLocation = CLLocation(
                         latitude: restaurant.lat,
                         longitude: restaurant.lng
                     )
-
+                    
+                    //店舗へのフォーカス移動時に再検索ボタンが表示されることを抑制する
                     if mapLocation.distance(from: restaurantLocation) < 100 {
                         showSearchButton = false
                         return
                     }
                 }
-
+                
                 showSearchButton = true
             }
-
+            
             .onAppear {
                 if isListTutorial {
                     listHeight = Self.expandedList
@@ -191,19 +195,19 @@ struct HomeMapView: View {
                     applySearchLocation()
                 }
             }
-
-
+            
+            
             //現在地が取得できたら地図を移動して店舗検索
             .onReceive(locationService.$coordinate.compactMap { $0 }) { coordinate in
-
+                
                 currentCoordinate = coordinate
                 //駅を指定してたら現在地で検索し直さない
                 if case .station = filters.location {
                     return
                 }
-
+                
                 guard highlightedRestaurantID == nil else { return }
-
+                
                 cameraPosition = .region(
                     MKCoordinateRegion(
                         center: coordinate,
@@ -213,7 +217,7 @@ struct HomeMapView: View {
                         )
                     )
                 )
-
+                
                 Task {
                     await loadRestaurants(
                         latitude: coordinate.latitude,
@@ -221,14 +225,14 @@ struct HomeMapView: View {
                     )
                 }
             }
-
-
+            
+            
             if showSearchButton {
                 Button {
                     guard let center = mapCenter else { return }
-
+                    
                     showSearchButton = false
-
+                    
                     Task {
                         await loadRestaurants(
                             latitude: center.latitude,
@@ -244,9 +248,9 @@ struct HomeMapView: View {
                         .glassEffect(.regular.interactive(), in: Capsule())
                 }
             }
-
+            
         }
-
+        
         .navigationDestination(
             isPresented: Binding(
                 get: { selectedRestaurant != nil },
@@ -272,14 +276,14 @@ struct HomeMapView: View {
                     }
             }
         }
-
+        
         .toolbar(.hidden, for: .navigationBar)
-
+        
         .overlay(alignment: .topLeading) {
             genreLegend
                 .tutorialTarget(.legend, active: tutorial.step == .legend)
         }
-
+        
         .overlay(alignment: .topTrailing) {
             Button {
                 tutorial.advance(from: .filter, to: .editing)
@@ -298,7 +302,7 @@ struct HomeMapView: View {
             .tutorialTarget(.filter, active: tutorial.step == .filter)
             .padding(.trailing, 16)
         }
-
+        
         .overlay(alignment: .bottom) {
             if !showsList && tutorial.step == nil {
                 Button {
@@ -329,13 +333,13 @@ struct HomeMapView: View {
         }
         .alert(item: issueBinding(inList: false), content: searchAlert)
     }
-
+    
     // 一覧表示中は最前面のシートからアラートを出す。
     private func issueBinding(inList: Bool) -> Binding<SearchIssue?> {
         Binding(get: { showsList == inList ? searchIssue : nil },
                 set: { if showsList == inList { searchIssue = $0 } })
     }
-
+    
     private func searchAlert(_ issue: SearchIssue) -> Alert {
         issue.alert {
             open(.search)
@@ -345,8 +349,8 @@ struct HomeMapView: View {
             }
         }
     }
-
-    //店舗一覧のシートが開いてたら閉じてから切り替える
+    
+    //シートの表示状態に応じて画面遷移のタイミングを制御する
     private func open(_ destination: MapDestination) {
         if showsList {
             nextDestination = destination
@@ -355,7 +359,8 @@ struct HomeMapView: View {
             navigate(to: destination)
         }
     }
-
+    
+    //遷移先ごとの処理を共通化
     private func navigate(to destination: MapDestination) {
         switch destination {
         case .detail(let restaurant):
@@ -365,7 +370,7 @@ struct HomeMapView: View {
             showSearchFilter = true
         }
     }
-
+    
     private var genreLegend: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
@@ -384,7 +389,7 @@ struct HomeMapView: View {
             .buttonStyle(.plain)
             .accessibilityLabel("ジャンルの色")
             .tutorialTarget(.palette, active: tutorial.step == .palette || tutorial.step == .legend)
-
+            
             if showGenreLegend {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
@@ -393,7 +398,7 @@ struct HomeMapView: View {
                                 Circle()
                                     .fill(genre.color)
                                     .frame(width: 16, height: 16)
-
+                                
                                 Text(genre.japaneseName)
                                     .font(.caption)
                             }
@@ -414,7 +419,7 @@ struct HomeMapView: View {
         }
         .padding(.leading, 16)
     }
-
+    
     private var listSheet: some View {
         VStack(spacing: 8) {
             HStack {
@@ -433,7 +438,7 @@ struct HomeMapView: View {
             }
             .padding(.horizontal)
             .padding(.top, 14)
-
+            
             ScrollViewReader { scroll in
                 restaurantList
                     .onChange(of: tutorialFavoriteID, initial: true) { _, id in
@@ -444,13 +449,17 @@ struct HomeMapView: View {
         //チュートリアルで強調するボタンを探す
         .overlayPreferenceValue(TutorialBounds.self) { anchors in
             if let step = tutorial.step, step == .favorite || step == .candidate {
+                //画面、部品の大きさ、位置を調べる
                 GeometryReader { geometry in
+                    //店舗一覧の領域取得
                     let viewport = anchors[.listViewport]?.first.map { geometry[$0] }
+                    //ボタンの候補
                     let buttons = anchors[step == .favorite ? .heart : .candidate] ?? []
+                    //スクロール領域内に完全に収まっているボタンを強調対象とする
                     let target = buttons.map { geometry[$0] }.first { viewport?.contains($0) == true }
                     TutorialSpotlight(step: step, target: target, finish: tutorial.finish) {
                         if step == .favorite { tutorial.advance(from: .favorite, to: .candidate) }
-                        else { tutorial.advance(from: .candidate, to: .random) }
+                        else { tutorial.advance(from: .candidate, to: .random) }//TutorialSpotlightにわたす処理
                     }
                 }
             }
@@ -459,21 +468,24 @@ struct HomeMapView: View {
                              selection: $listHeight)
         .presentationDragIndicator(isListTutorial ? .hidden : .visible)
         .presentationContentInteraction(.scrolls)
+        //チュートリアル中に他部分を触っても反応しないようにする
         .presentationBackgroundInteraction(isListTutorial ? .disabled : .enabled)
         .presentationBackground(Color.moguCanvas)
         .interactiveDismissDisabled(isListTutorial)
         .tint(.moguInk)
         .alert(item: issueBinding(inList: true), content: searchAlert)
+        //候補リストの選択画面を閉じたら次に進む
         .sheet(item: $candidateRestaurant, onDismiss: {
             tutorial.advance(from: .selecting, to: .random)
         }) { restaurant in
             CandidateSelectionView(restaurant: restaurant)
+            //下部のあまり触らない領域に追加する
                 .safeAreaInset(edge: .bottom) {
                     if tutorial.step == .selecting { TutorialHint(step: .selecting, finish: tutorial.finish) }
                 }
         }
     }
-
+    
     private var restaurantList: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
@@ -485,7 +497,7 @@ struct HomeMapView: View {
                             RestaurantRow(restaurant: restaurant, style: .home)
                         }
                         .buttonStyle(.plain)
-
+                        
                         Button {
                             focusOnRestaurant(restaurant)
                         } label: {
@@ -496,7 +508,7 @@ struct HomeMapView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("\(restaurant.name)を地図で表示")
-
+                        
                         Button {
                             favoritesStore.toggleFavorite(restaurant)
                             if favoritesStore.isFavorite(restaurant.id) {
@@ -505,8 +517,8 @@ struct HomeMapView: View {
                         } label: {
                             Image(
                                 systemName: favoritesStore.isFavorite(restaurant.id)
-                                    ? "heart.fill"
-                                    : "heart"
+                                ? "heart.fill"
+                                : "heart"
                             )
                             .font(.title3)
                             .foregroundStyle(.red)
@@ -514,7 +526,7 @@ struct HomeMapView: View {
                         }
                         .buttonStyle(.plain)
                         .tutorialTarget(.heart, active: tutorial.step == .favorite && !favoritesStore.isFavorite(restaurant.id))
-
+                        
                         Button {
                             candidateRestaurant = restaurant
                             tutorial.advance(from: .candidate, to: .selecting)
@@ -530,26 +542,28 @@ struct HomeMapView: View {
                         .padding(.trailing, 12)
                     }
                     .id(restaurant.id)
-
+                    
                     Divider()
                 }
             }
         }
         .tutorialTarget(.listViewport, active: tutorial.step != nil)
     }
-
+    
+    //選択された店舗のピンを強調し、地図の中心を店舗の位置に移動する
     private func focusOnRestaurant(_ restaurant: Restaurant) {
-
+        
         let coordinate = CLLocationCoordinate2D(
             latitude: restaurant.lat,
             longitude: restaurant.lng
         )
-
+        
         withAnimation(.spring(response: 0.4, dampingFraction: 0.65)) {
             highlightedRestaurantID = restaurant.id
+            //チュートリアル中は一覧の高さを保持
             if !isListTutorial { listHeight = Self.compactList }
         }
-
+        
         withAnimation(.easeInOut(duration: 0.5)) {
             cameraPosition = .region(
                 MKCoordinateRegion(
@@ -562,10 +576,10 @@ struct HomeMapView: View {
             )
         }
     }
-
+    
     private func applySearchLocation() {
         showSearchButton = false
-
+        
         switch filters.location {
         case .station(_, let latitude, let longitude):
             let coordinate = CLLocationCoordinate2D(
@@ -582,19 +596,19 @@ struct HomeMapView: View {
                     )
                 )
             )
-
+            
             Task {
                 await loadRestaurants(
                     latitude: latitude,
                     longitude: longitude
                 )
             }
-
+            
         case .unspecified, .currentLocation:
             locationService.requestLocation()
         }
     }
-
+    
     private func loadRestaurants(
         latitude: Double,
         longitude: Double
@@ -603,10 +617,11 @@ struct HomeMapView: View {
         latestSearchID = requestID
         let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         lastSearchCenter = coordinate
-
+        
         do {
             let result = try await HotPepperAPIService().fetchRestaurants(filters: filters, coordinate: coordinate)
-
+            
+            //古い検索結果が最新の検索結果を上書きすることを防ぐ
             guard latestSearchID == requestID else { return }
             //検索結果を近い順に並べる
             let searchLocation = CLLocation(
@@ -629,36 +644,39 @@ struct HomeMapView: View {
             if tutorial.step == nil { searchIssue = (error as? SearchIssue) ?? .connection }
         }
     }
-
+    
+    //検索結果に応じて地図の表示範囲を調整
     private func fitMapToRestaurants(_ restaurants: [Restaurant]) {
         guard !restaurants.isEmpty,
               let center = mapCenter else { return }
-
+        
         let centerLocation = CLLocation(
             latitude: center.latitude,
             longitude: center.longitude
         )
-
+        
+        //近い順に最大６店舗を基準として縮小しすぎないようにする
         let distances = restaurants.map { $0.distance(from: centerLocation) }.sorted()
         let maxDistance = distances.prefix(6).last ?? 0
-
+        
+        //地図の過度な拡大縮小を防ぐため上下の限度を設ける
         let desiredDelta = min(
             max(maxDistance * 2.8 / 111_000, 0.005),
             0.02
         )
-
+        
         let currentRegion = cameraPosition.region
-
+        
         let latitudeDelta = max(
             currentRegion?.span.latitudeDelta ?? 0.005,
             desiredDelta
         )
-
+        
         let longitudeDelta = max(
             currentRegion?.span.longitudeDelta ?? 0.005,
             desiredDelta
         )
-
+        
         withAnimation(.easeInOut(duration: 0.4)) {
             cameraPosition = .region(
                 MKCoordinateRegion(
@@ -671,7 +689,7 @@ struct HomeMapView: View {
             )
         }
     }
-
+    
 }
 
 #Preview {

@@ -14,6 +14,7 @@ struct FavoritesView: View {
     @StateObject private var locationService = LocationService()
     @State private var matchedFavoriteIDs: Set<String>?
 
+    //取得招待が変化した際に検索を再実行する
     private struct ListSearchKey: Equatable {
         let favoriteIDs: Set<String>
         let hasLocation: Bool
@@ -21,12 +22,14 @@ struct FavoritesView: View {
     }
 
     private var listSearchKey: ListSearchKey? {
+        //絞り込み条件の編集中は検索を実行しない
         guard !showSearchFilter else { return nil }
         return ListSearchKey(favoriteIDs: favoritesStore.favoriteIDs,
                              hasLocation: locationService.coordinate != nil,
                              locationUnavailable: locationService.locationUnavailable)
     }
 
+    //お気に入りの絞り込みにAPIへの問い合わせが必要か判定する
     private var requiresAPISearch: Bool {
         switch filters.openingHours {
         case .all:
@@ -38,6 +41,8 @@ struct FavoritesView: View {
         }
     }
 
+    //APIの検索結果とお気に入り店舗のIDを照合する
+    //nilはAPI検索不要、空のsetは該当店舗なし
     private func matchingIDs() async throws -> Set<String>? {
         if case .currentLocation = filters.location, filters.range != .unspecified,
            locationService.coordinate == nil { throw SearchIssue.location }
@@ -75,6 +80,7 @@ struct FavoritesView: View {
         var favoriteFilters = filters
         favoriteFilters.restaurantName = ""
 
+        //１回のAPI通信では全権取得ができないため複数ページに分けて取得
         var matchedIDs: Set<String> = []
         var start = 1
         repeat {
@@ -89,14 +95,17 @@ struct FavoritesView: View {
             }
             start += results.count
 
+            //お気に入りの全部、最終ページに到達したら通信の終了
             if matchedIDs == favoriteIDs || results.count < HotPepperAPIService.pageSize {
                 break
             }
+            //API通信の繰り返しに上限を設ける
         } while start <= 1000
 
         return matchedIDs
     }
 
+    // お気に入りに保存した店舗情報とAPIの検索結果を使って絞り込む
     private func matchesSearchRange(_ restaurant: Restaurant) -> Bool {
         guard let meters = filters.range.meters else { return true }
         let coordinate: CLLocationCoordinate2D
@@ -138,6 +147,7 @@ struct FavoritesView: View {
     private func refreshFavoriteList() async {
         do {
             let ids = try await matchingIDs()
+            //キャンセルされた検索結果が画面に反映されないようにする
             try Task.checkCancellation()
             matchedFavoriteIDs = ids
         } catch {
@@ -148,8 +158,10 @@ struct FavoritesView: View {
     }
 
     private func pickRandomFavorite() async {
+        //抽選処理の重複実行を防ぐ
         guard !isPicking else { return }
         isPicking = true
+        //処理終了時の解除忘れを防ぐため、deferで抽選中の状態を解除する
         defer { isPicking = false }
         do {
             let ids = try await matchingIDs()
@@ -266,6 +278,7 @@ struct FavoritesView: View {
                 }
             }
         }
+        //検索キーが変化したら一覧を更新し以前のtaskをキャンセルする
         .task(id: listSearchKey) {
             guard !showSearchFilter else { return }
             if case .station = filters.location {

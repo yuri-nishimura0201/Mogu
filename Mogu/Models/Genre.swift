@@ -33,6 +33,7 @@ struct Genre: Identifiable {
         all.first { $0.code == code }?.color ?? otherColor
     }
 
+    // RGB値で色を指定できるようにSwiftUI用の変換処理を共通化する
     private static func rgb(_ red: Double, _ green: Double, _ blue: Double) -> Color {
         Color(red: red / 255, green: green / 255, blue: blue / 255)
     }
